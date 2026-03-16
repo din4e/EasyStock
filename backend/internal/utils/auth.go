@@ -18,14 +18,16 @@ type Claims struct {
 	UserID   uint   `json:"user_id"`
 	Username string `json:"username"`
 	Role     string `json:"role"`
+	TenantID uint   `json:"tenant_id"` // 多租户支持
 	jwt.RegisteredClaims
 }
 
-func GenerateToken(userID uint, username, role string, expireHour int) (string, error) {
+func GenerateToken(userID uint, username, role string, tenantID uint, expireHour int) (string, error) {
 	claims := &Claims{
 		UserID:   userID,
 		Username: username,
 		Role:     role,
+		TenantID: tenantID,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Duration(expireHour) * time.Hour)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),

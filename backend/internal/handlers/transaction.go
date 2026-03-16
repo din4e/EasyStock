@@ -22,6 +22,7 @@ func NewTransactionHandler(db *gorm.DB) *TransactionHandler {
 
 func (h *TransactionHandler) Create(c *gin.Context) {
 	userID := middleware.GetUserID(c)
+	tenantID := middleware.GetTenantID(c)
 
 	var req models.StockTransactionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -29,16 +30,10 @@ func (h *TransactionHandler) Create(c *gin.Context) {
 		return
 	}
 
-	// Get item
+	// Get item and verify tenant ownership
 	var item models.Item
-	if err := h.db.First(&item, req.ItemID).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Item not found"})
-		return
-	}
-
-	// Verify ownership
-	if item.UserID != userID {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
+	if err := h.db.Where("id = ? AND tenant_id = ?", req.ItemID, tenantID).First(&item).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "物品不存在"})
 		return
 	}
 
@@ -51,13 +46,13 @@ func (h *TransactionHandler) Create(c *gin.Context) {
 	case "out", "consume":
 		afterQty = beforeQty - req.Quantity
 		if afterQty < 0 {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Insufficient stock"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "库存不足"})
 			return
 		}
 	case "adjust":
 		afterQty = req.Quantity
 	default:
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid transaction type"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的交易类型"})
 		return
 	}
 
@@ -71,10 +66,11 @@ func (h *TransactionHandler) Create(c *gin.Context) {
 		Note:      req.Note,
 		ItemID:    req.ItemID,
 		UserID:    userID,
+		TenantID:  tenantID,
 	}
 
 	if err := h.db.Create(&transaction).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create transaction"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "创建交易记录失败"})
 		return
 	}
 
@@ -84,7 +80,7 @@ func (h *TransactionHandler) Create(c *gin.Context) {
 		item.Price = req.Price
 	}
 	if err := h.db.Save(&item).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update item"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "更新物品库存失败"})
 		return
 	}
 
@@ -95,13 +91,13 @@ func (h *TransactionHandler) Create(c *gin.Context) {
 }
 
 func (h *TransactionHandler) List(c *gin.Context) {
-	userID := middleware.GetUserID(c)
+	tenantID := middleware.GetTenantID(c)
 
 	itemID := c.Query("item_id")
 	limit := c.DefaultQuery("limit", "50")
 	offset := c.DefaultQuery("offset", "0")
 
-	query := h.db.Where("user_id = ?", userID).Preload("Item").Preload("User").Order("created_at DESC")
+	query := h.db.Where("tenant_id = ?", tenantID).Preload("Item").Preload("User").Order("created_at DESC")
 
 	if itemID != "" {
 		id, _ := strconv.ParseUint(itemID, 10, 32)
@@ -113,7 +109,7 @@ func (h *TransactionHandler) List(c *gin.Context) {
 
 	var transactions []models.StockTransaction
 	if err := query.Limit(limitInt).Offset(offsetInt).Find(&transactions).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch transactions"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "获取交易记录失败"})
 		return
 	}
 
@@ -121,16 +117,16 @@ func (h *TransactionHandler) List(c *gin.Context) {
 }
 
 func (h *TransactionHandler) Get(c *gin.Context) {
-	userID := middleware.GetUserID(c)
+	tenantID := middleware.GetTenantID(c)
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的ID"})
 		return
 	}
 
 	var transaction models.StockTransaction
-	if err := h.db.Preload("Item").Preload("User").Where("id = ? AND user_id = ?", id, userID).First(&transaction).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Transaction not found"})
+	if err := h.db.Preload("Item").Preload("User").Where("id = ? AND tenant_id = ?", id, tenantID).First(&transaction).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "交易记录不存在"})
 		return
 	}
 
@@ -139,33 +135,33 @@ func (h *TransactionHandler) Get(c *gin.Context) {
 
 // Dashboard stats
 func (h *TransactionHandler) GetStats(c *gin.Context) {
-	userID := middleware.GetUserID(c)
+	tenantID := middleware.GetTenantID(c)
 
 	var stats models.DashboardStats
 
 	// Total items
-	h.db.Model(&models.Item{}).Where("user_id = ?", userID).Count(&stats.TotalItems)
+	h.db.Model(&models.Item{}).Where("tenant_id = ?", tenantID).Count(&stats.TotalItems)
 
 	// Total value (sum of price * quantity)
-	h.db.Model(&models.Item{}).Where("user_id = ? AND quantity > 0", userID).
+	h.db.Model(&models.Item{}).Where("tenant_id = ? AND quantity > 0", tenantID).
 		Select("COALESCE(SUM(price * quantity), 0)").Scan(&stats.TotalValue)
 
 	// Expiring soon (within 7 days)
 	alertDate := time.Now().AddDate(0, 0, 7)
-	h.db.Model(&models.Item{}).Where("user_id = ? AND expired_at IS NOT NULL AND expired_at <= ? AND quantity > 0", userID, alertDate).
+	h.db.Model(&models.Item{}).Where("tenant_id = ? AND expired_at IS NOT NULL AND expired_at <= ? AND quantity > 0", tenantID, alertDate).
 		Count(&stats.ExpiringSoon)
 
 	// Out of stock
-	h.db.Model(&models.Item{}).Where("user_id = ? AND quantity = 0", userID).Count(&stats.OutOfStock)
+	h.db.Model(&models.Item{}).Where("tenant_id = ? AND quantity = 0", tenantID).Count(&stats.OutOfStock)
 
 	// Low stock (quantity <= alert_days as threshold)
-	h.db.Model(&models.Item{}).Where("user_id = ? AND quantity > 0 AND quantity <= alert_days", userID).Count(&stats.LowStock)
+	h.db.Model(&models.Item{}).Where("tenant_id = ? AND quantity > 0 AND quantity <= alert_days", tenantID).Count(&stats.LowStock)
 
 	// Recent transactions (last 7 days)
 	weekAgo := time.Now().AddDate(0, 0, -7)
 	var recentInCount, recentOutCount int64
-	h.db.Model(&models.StockTransaction{}).Where("user_id = ? AND type = 'in' AND created_at >= ?", userID, weekAgo).Count(&recentInCount)
-	h.db.Model(&models.StockTransaction{}).Where("user_id = ? AND type = 'out' AND created_at >= ?", userID, weekAgo).Count(&recentOutCount)
+	h.db.Model(&models.StockTransaction{}).Where("tenant_id = ? AND type = 'in' AND created_at >= ?", tenantID, weekAgo).Count(&recentInCount)
+	h.db.Model(&models.StockTransaction{}).Where("tenant_id = ? AND type = 'out' AND created_at >= ?", tenantID, weekAgo).Count(&recentOutCount)
 	stats.RecentIn = int(recentInCount)
 	stats.RecentOut = int(recentOutCount)
 
@@ -173,13 +169,13 @@ func (h *TransactionHandler) GetStats(c *gin.Context) {
 	var categoryStats []models.CategoryStat
 	h.db.Model(&models.Item{}).
 		Select("category_id, COUNT(*) as item_count, COALESCE(SUM(price * quantity), 0) as total_value").
-		Where("user_id = ?", userID).
+		Where("tenant_id = ?", tenantID).
 		Group("category_id").
 		Scan(&categoryStats)
 
 	for i := range categoryStats {
 		var cat models.Category
-		if err := h.db.First(&cat, categoryStats[i].CategoryID).Error; err == nil {
+		if err := h.db.Where("tenant_id = ?", tenantID).First(&cat, categoryStats[i].CategoryID).Error; err == nil {
 			categoryStats[i].CategoryName = cat.Name
 		}
 	}
@@ -189,13 +185,13 @@ func (h *TransactionHandler) GetStats(c *gin.Context) {
 	var locationStats []models.LocationStat
 	h.db.Model(&models.Item{}).
 		Select("location_id, COUNT(*) as item_count, COALESCE(SUM(price * quantity), 0) as total_value").
-		Where("user_id = ?", userID).
+		Where("tenant_id = ?", tenantID).
 		Group("location_id").
 		Scan(&locationStats)
 
 	for i := range locationStats {
 		var loc models.Location
-		if err := h.db.First(&loc, locationStats[i].LocationID).Error; err == nil {
+		if err := h.db.Where("tenant_id = ?", tenantID).First(&loc, locationStats[i].LocationID).Error; err == nil {
 			locationStats[i].LocationName = loc.Name
 		}
 	}

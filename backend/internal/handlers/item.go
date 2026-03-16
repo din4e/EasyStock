@@ -22,6 +22,7 @@ func NewItemHandler(db *gorm.DB) *ItemHandler {
 
 func (h *ItemHandler) Create(c *gin.Context) {
 	userID := middleware.GetUserID(c)
+	tenantID := middleware.GetTenantID(c)
 
 	var req models.ItemRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -42,12 +43,13 @@ func (h *ItemHandler) Create(c *gin.Context) {
 		Note:        req.Note,
 		AlertDays:   req.AlertDays,
 		CategoryID:  req.CategoryID,
-		LocationID: req.LocationID,
+		LocationID:  req.LocationID,
 		UserID:      userID,
+		TenantID:    tenantID,
 	}
 
 	if err := h.db.Create(&item).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create item"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "创建物品失败"})
 		return
 	}
 
@@ -58,7 +60,7 @@ func (h *ItemHandler) Create(c *gin.Context) {
 }
 
 func (h *ItemHandler) List(c *gin.Context) {
-	userID := middleware.GetUserID(c)
+	tenantID := middleware.GetTenantID(c)
 
 	// Query params
 	categoryID := c.Query("category_id")
@@ -67,7 +69,7 @@ func (h *ItemHandler) List(c *gin.Context) {
 	lowStock := c.Query("low_stock")
 	expiring := c.Query("expiring")
 
-	query := h.db.Where("user_id = ?", userID).Preload("Category").Preload("Location")
+	query := h.db.Where("tenant_id = ?", tenantID).Preload("Category").Preload("Location")
 
 	if categoryID != "" {
 		catID, _ := strconv.ParseUint(categoryID, 10, 32)
@@ -95,7 +97,7 @@ func (h *ItemHandler) List(c *gin.Context) {
 
 	var items []models.Item
 	if err := query.Order("updated_at DESC").Find(&items).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch items"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "获取物品列表失败"})
 		return
 	}
 
@@ -103,16 +105,16 @@ func (h *ItemHandler) List(c *gin.Context) {
 }
 
 func (h *ItemHandler) Get(c *gin.Context) {
-	userID := middleware.GetUserID(c)
+	tenantID := middleware.GetTenantID(c)
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的ID"})
 		return
 	}
 
 	var item models.Item
-	if err := h.db.Preload("Category").Preload("Location").Preload("Transactions").Where("id = ? AND user_id = ?", id, userID).First(&item).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Item not found"})
+	if err := h.db.Preload("Category").Preload("Location").Preload("Transactions").Where("id = ? AND tenant_id = ?", id, tenantID).First(&item).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "物品不存在"})
 		return
 	}
 
@@ -120,10 +122,10 @@ func (h *ItemHandler) Get(c *gin.Context) {
 }
 
 func (h *ItemHandler) Update(c *gin.Context) {
-	userID := middleware.GetUserID(c)
+	tenantID := middleware.GetTenantID(c)
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的ID"})
 		return
 	}
 
@@ -134,8 +136,8 @@ func (h *ItemHandler) Update(c *gin.Context) {
 	}
 
 	var item models.Item
-	if err := h.db.Where("id = ? AND user_id = ?", id, userID).First(&item).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Item not found"})
+	if err := h.db.Where("id = ? AND tenant_id = ?", id, tenantID).First(&item).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "物品不存在"})
 		return
 	}
 
@@ -154,7 +156,7 @@ func (h *ItemHandler) Update(c *gin.Context) {
 	item.LocationID = req.LocationID
 
 	if err := h.db.Save(&item).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update item"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "更新物品失败"})
 		return
 	}
 
@@ -164,28 +166,28 @@ func (h *ItemHandler) Update(c *gin.Context) {
 }
 
 func (h *ItemHandler) Delete(c *gin.Context) {
-	userID := middleware.GetUserID(c)
+	tenantID := middleware.GetTenantID(c)
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的ID"})
 		return
 	}
 
-	if err := h.db.Where("id = ? AND user_id = ?", id, userID).Delete(&models.Item{}).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete item"})
+	if err := h.db.Where("id = ? AND tenant_id = ?", id, tenantID).Delete(&models.Item{}).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "删除物品失败"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Item deleted"})
+	c.JSON(http.StatusOK, gin.H{"message": "物品已删除"})
 }
 
 func (h *ItemHandler) GetByBarcode(c *gin.Context) {
-	userID := middleware.GetUserID(c)
+	tenantID := middleware.GetTenantID(c)
 	barcode := c.Param("barcode")
 
 	var item models.Item
-	if err := h.db.Preload("Category").Preload("Location").Where("barcode = ? AND user_id = ?", barcode, userID).First(&item).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Item not found"})
+	if err := h.db.Preload("Category").Preload("Location").Where("barcode = ? AND tenant_id = ?", barcode, tenantID).First(&item).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "物品不存在"})
 		return
 	}
 

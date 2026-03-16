@@ -6,8 +6,10 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
-import { Package, Plus, Search, ScanLine, Edit, Trash2, ArrowUpDown } from 'lucide-react'
+import { Package, Plus, Search, ScanLine, Edit, Trash2, Sparkles, Camera, Receipt } from 'lucide-react'
 import { api } from '@/lib/api'
+import { FileUpload, RecognitionLoading } from '@/components/ui/file-upload'
+import { AIResultModal, RecognizedItem } from '@/components/ui/ai-result-modal'
 
 interface Item {
   id: number
@@ -34,6 +36,8 @@ interface Location {
   name: string
 }
 
+type RecognitionType = 'product' | 'receipt' | 'barcode'
+
 export default function ItemsPage() {
   const searchParams = useSearchParams()
   const [items, setItems] = useState<Item[]>([])
@@ -45,6 +49,18 @@ export default function ItemsPage() {
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('')
   const [locationFilter, setLocationFilter] = useState('')
+
+  // AI Recognition states
+  const [showAIUpload, setShowAIUpload] = useState(false)
+  const [recognitionType, setRecognitionType] = useState<RecognitionType>('product')
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [isRecognizing, setIsRecognizing] = useState(false)
+  const [aiResult, setAIResult] = useState<{
+    items: RecognizedItem[]
+    provider: string
+    model: string
+  } | null>(null)
+  const [aiStatus, setAIStatus] = useState<{ configured: boolean; provider: string } | null>(null)
 
   const [formData, setFormData] = useState({
     name: '',
@@ -62,6 +78,7 @@ export default function ItemsPage() {
 
   useEffect(() => {
     loadData()
+    checkAIStatus()
     if (searchParams.get('action') === 'add') {
       setShowModal(true)
     }
@@ -81,6 +98,15 @@ export default function ItemsPage() {
       console.error('Failed to load data:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const checkAIStatus = async () => {
+    try {
+      const status = await api.getAIStatus()
+      setAIStatus(status)
+    } catch (error) {
+      console.error('Failed to check AI status:', error)
     }
   }
 
@@ -170,6 +196,56 @@ export default function ItemsPage() {
     })
   }
 
+  // AI Recognition handlers
+  const handleAIFileSelect = async (file: File) => {
+    setSelectedFile(file)
+    setIsRecognizing(true)
+    setShowAIUpload(false)
+
+    try {
+      const result = await api.recognizeFromImage(file, recognitionType)
+      setAIResult({
+        items: result.items,
+        provider: result.provider,
+        model: result.model,
+      })
+    } catch (error) {
+      console.error('AI recognition failed:', error)
+      alert('AI 识别失败: ' + (error as Error).message)
+    } finally {
+      setIsRecognizing(false)
+      setSelectedFile(null)
+    }
+  }
+
+  const handleAIConfirm = async (items: Array<{
+    name: string
+    barcode?: string
+    quantity: number
+    unit?: string
+    price?: number
+    cost?: number
+    expired_at?: string
+    description?: string
+    category_id?: number
+    location_id?: number
+  }>) => {
+    try {
+      const result = await api.batchCreateItems(items)
+      setAIResult(null)
+      loadData()
+      alert(`成功添加 ${result.created} 个物品${result.failed > 0 ? `，${result.failed} 个失败` : ''}`)
+    } catch (error) {
+      console.error('Failed to create items:', error)
+      alert('批量创建失败: ' + (error as Error).message)
+    }
+  }
+
+  const openAIUpload = (type: RecognitionType) => {
+    setRecognitionType(type)
+    setShowAIUpload(true)
+  }
+
   if (loading && items.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -185,10 +261,22 @@ export default function ItemsPage() {
           <h1 className="text-2xl font-bold">物品管理</h1>
           <p className="text-muted-foreground">管理您的库存物品</p>
         </div>
-        <Button onClick={() => { resetForm(); setShowModal(true) }}>
-          <Plus className="h-4 w-4 mr-2" />
-          添加物品
-        </Button>
+        <div className="flex gap-2">
+          {aiStatus?.configured && (
+            <Button
+              variant="outline"
+              onClick={() => openAIUpload('product')}
+              className="gap-2"
+            >
+              <Sparkles className="h-4 w-4" />
+              AI 识别
+            </Button>
+          )}
+          <Button onClick={() => { resetForm(); setShowModal(true) }}>
+            <Plus className="h-4 w-4 mr-2" />
+            添加物品
+          </Button>
+        </div>
       </div>
 
       {/* Search and filters */}
@@ -239,6 +327,16 @@ export default function ItemsPage() {
           <CardContent className="py-12 text-center">
             <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
             <p className="text-muted-foreground">暂无物品，点击添加按钮创建您的第一个物品</p>
+            {aiStatus?.configured && (
+              <Button
+                variant="outline"
+                className="mt-4"
+                onClick={() => openAIUpload('product')}
+              >
+                <Sparkles className="h-4 w-4 mr-2" />
+                使用 AI 快速录入
+              </Button>
+            )}
           </CardContent>
         </Card>
       ) : (
@@ -300,7 +398,7 @@ export default function ItemsPage() {
         </div>
       )}
 
-      {/* Modal */}
+      {/* Add/Edit Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-background rounded-lg w-full max-w-lg max-h-[90vh] overflow-y-auto">
@@ -432,6 +530,83 @@ export default function ItemsPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* AI Upload Modal */}
+      {showAIUpload && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-background rounded-lg w-full max-w-md">
+            <div className="p-6">
+              <h2 className="text-xl font-bold mb-4">AI 智能识别</h2>
+
+              {/* Recognition type selector */}
+              <div className="grid grid-cols-3 gap-2 mb-6">
+                <Button
+                  variant={recognitionType === 'product' ? 'default' : 'outline'}
+                  className="flex-col h-auto py-3"
+                  onClick={() => setRecognitionType('product')}
+                >
+                  <Camera className="h-5 w-5 mb-1" />
+                  <span className="text-xs">商品照片</span>
+                </Button>
+                <Button
+                  variant={recognitionType === 'receipt' ? 'default' : 'outline'}
+                  className="flex-col h-auto py-3"
+                  onClick={() => setRecognitionType('receipt')}
+                >
+                  <Receipt className="h-5 w-5 mb-1" />
+                  <span className="text-xs">购物小票</span>
+                </Button>
+                <Button
+                  variant={recognitionType === 'barcode' ? 'default' : 'outline'}
+                  className="flex-col h-auto py-3"
+                  onClick={() => setRecognitionType('barcode')}
+                >
+                  <ScanLine className="h-5 w-5 mb-1" />
+                  <span className="text-xs">条形码</span>
+                </Button>
+              </div>
+
+              <p className="text-sm text-muted-foreground mb-4">
+                {recognitionType === 'product' && '上传商品照片，AI 将自动识别商品信息'}
+                {recognitionType === 'receipt' && '上传购物小票或发票，AI 将提取所有商品信息'}
+                {recognitionType === 'barcode' && '上传条形码图片，AI 将识别条码信息'}
+              </p>
+
+              <FileUpload
+                onFileSelect={handleAIFileSelect}
+                accept="image/*,.pdf"
+              />
+
+              <div className="flex justify-end mt-4">
+                <Button variant="outline" onClick={() => setShowAIUpload(false)}>
+                  取消
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* AI Recognition Loading */}
+      {isRecognizing && (
+        <RecognitionLoading
+          provider={aiStatus?.provider}
+          model="processing"
+        />
+      )}
+
+      {/* AI Result Modal */}
+      {aiResult && (
+        <AIResultModal
+          items={aiResult.items}
+          provider={aiResult.provider}
+          model={aiResult.model}
+          categories={categories}
+          locations={locations}
+          onConfirm={handleAIConfirm}
+          onCancel={() => setAIResult(null)}
+        />
       )}
     </div>
   )

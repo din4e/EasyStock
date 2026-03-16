@@ -35,6 +35,7 @@ func AuthMiddleware() gin.HandlerFunc {
 		c.Set("user_id", claims.UserID)
 		c.Set("username", claims.Username)
 		c.Set("role", claims.Role)
+		c.Set("tenant_id", claims.TenantID)
 		c.Next()
 	}
 }
@@ -53,4 +54,37 @@ func GetUserRole(c *gin.Context) string {
 		return ""
 	}
 	return role.(string)
+}
+
+func GetTenantID(c *gin.Context) uint {
+	tenantID, exists := c.Get("tenant_id")
+	if !exists {
+		return 0
+	}
+	return tenantID.(uint)
+}
+
+// RequireRole 检查用户角色
+func RequireRole(roles ...string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userRole := GetUserRole(c)
+		for _, role := range roles {
+			if userRole == role {
+				c.Next()
+				return
+			}
+		}
+		c.JSON(http.StatusForbidden, gin.H{"error": "Insufficient permissions"})
+		c.Abort()
+	}
+}
+
+// RequireOwner 仅限组织所有者
+func RequireOwner() gin.HandlerFunc {
+	return RequireRole("owner")
+}
+
+// RequireAdmin 仅限管理员及以上
+func RequireAdmin() gin.HandlerFunc {
+	return RequireRole("owner", "admin")
 }

@@ -79,18 +79,19 @@ class ApiClient {
   }
 
   // Categories
-  async getCategories() {
-    return this.request<any[]>('/categories')
+  async getCategories(format?: 'tree') {
+    const query = format ? `?format=${format}` : ''
+    return this.request<any[]>(`/categories${query}`)
   }
 
-  async createCategory(data: { name: string; description?: string; color?: string; icon?: string }) {
+  async createCategory(data: { name: string; description?: string; color?: string; icon?: string; parent_id?: number; sort_order?: number }) {
     return this.request<any>('/categories', {
       method: 'POST',
       body: JSON.stringify(data),
     })
   }
 
-  async updateCategory(id: number, data: { name: string; description?: string; color?: string; icon?: string }) {
+  async updateCategory(id: number, data: { name: string; description?: string; color?: string; icon?: string; parent_id?: number | null; sort_order?: number }) {
     return this.request<any>(`/categories/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
@@ -103,19 +104,27 @@ class ApiClient {
     })
   }
 
-  // Locations
-  async getLocations() {
-    return this.request<any[]>('/locations')
+  async reorderCategories(items: Array<{ id: number; parent_id?: number | null; sort_order: number }>) {
+    return this.request<{ message: string }>('/categories/reorder', {
+      method: 'POST',
+      body: JSON.stringify({ items }),
+    })
   }
 
-  async createLocation(data: { name: string; description?: string; icon?: string }) {
+  // Locations
+  async getLocations(format?: 'tree') {
+    const query = format ? `?format=${format}` : ''
+    return this.request<any[]>(`/locations${query}`)
+  }
+
+  async createLocation(data: { name: string; description?: string; icon?: string; parent_id?: number; sort_order?: number }) {
     return this.request<any>('/locations', {
       method: 'POST',
       body: JSON.stringify(data),
     })
   }
 
-  async updateLocation(id: number, data: { name: string; description?: string; icon?: string }) {
+  async updateLocation(id: number, data: { name: string; description?: string; icon?: string; parent_id?: number | null; sort_order?: number }) {
     return this.request<any>(`/locations/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
@@ -125,6 +134,13 @@ class ApiClient {
   async deleteLocation(id: number) {
     return this.request<{ message: string }>(`/locations/${id}`, {
       method: 'DELETE',
+    })
+  }
+
+  async reorderLocations(items: Array<{ id: number; parent_id?: number | null; sort_order: number }>) {
+    return this.request<{ message: string }>('/locations/reorder', {
+      method: 'POST',
+      body: JSON.stringify({ items }),
     })
   }
 
@@ -216,6 +232,104 @@ class ApiClient {
   // Dashboard
   async getStats() {
     return this.request<any>('/dashboard/stats')
+  }
+
+  // AI Recognition
+  async getAIStatus() {
+    return this.request<{ configured: boolean; provider: string; model: string }>('/ai/status')
+  }
+
+  async getAIProviders() {
+    return this.request<{ providers: Array<{ id: string; name: string; description: string; models: string[] }> }>('/ai/providers')
+  }
+
+  async recognizeFromImage(file: File, type: 'product' | 'receipt' | 'barcode' = 'product') {
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('type', type)
+
+    const headers: Record<string, string> = {}
+    if (this.token) {
+      headers['Authorization'] = `Bearer ${this.token}`
+    }
+
+    const response = await fetch(`${API_BASE}/ai/recognize`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    })
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Recognition failed' }))
+      throw new Error(error.error || 'Recognition failed')
+    }
+
+    return response.json() as Promise<{
+      items: Array<{
+        name: string
+        barcode?: string
+        quantity?: number
+        unit?: string
+        price?: number
+        cost?: number
+        expired_at?: string
+        description?: string
+        category?: string
+        brand?: string
+        confidence: number
+      }>
+      provider: string
+      model: string
+      file_url?: string
+    }>
+  }
+
+  async batchCreateItems(items: Array<{
+    name: string
+    barcode?: string
+    quantity?: number
+    unit?: string
+    price?: number
+    cost?: number
+    expired_at?: string
+    description?: string
+    category_id?: number
+    location_id?: number
+  }>) {
+    return this.request<{ items: any[]; created: number; failed: number; errors: string[] }>('/items/batch', {
+      method: 'POST',
+      body: JSON.stringify({ items }),
+    })
+  }
+
+  // File Upload
+  async uploadFile(file: File) {
+    const formData = new FormData()
+    formData.append('file', file)
+
+    const headers: Record<string, string> = {}
+    if (this.token) {
+      headers['Authorization'] = `Bearer ${this.token}`
+    }
+
+    const response = await fetch(`${API_BASE}/upload`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    })
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Upload failed' }))
+      throw new Error(error.error || 'Upload failed')
+    }
+
+    return response.json() as Promise<{
+      id: string
+      name: string
+      url: string
+      size: number
+      mime_type: string
+    }>
   }
 }
 
