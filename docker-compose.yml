@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: easystock-backend
+    ports:
+      - "8080:8080"
+    environment:
+      - SERVER_PORT=8080
+      - DB_TYPE=sqlite
+      - JWT_SECRET=easystock-secret-key-change-in-production
+      - JWT_EXPIRE_HOUR=24
+    volumes:
+      - easystock-data:/app/data
+    restart: unless-stopped
+    networks:
+      - easystock-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: easystock-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8080/api/v1
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - easystock-network
+
+volumes:
+  easystock-data:
+
+networks:
+  easystock-network:
+    driver: bridge
