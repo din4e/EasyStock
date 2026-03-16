@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"log"
 	"net/http"
 
 	"easystock/internal/config"
@@ -58,7 +59,13 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	var tenant *models.Tenant
 
 	// 处理租户逻辑
-	if h.config != nil && h.config.Deployment.Mode == "local" {
+	// 本地模式：使用默认租户（ID=1）
+	mode := "unknown"
+	if h.config != nil {
+		mode = h.config.Deployment.Mode
+	}
+	log.Printf("[DEBUG] h.config=%v, mode=%s", h.config != nil, mode)
+	if h.config == nil || h.config.Deployment.Mode == "local" {
 		// 本地模式：使用默认租户（ID=1）
 		var defaultTenant models.Tenant
 		if err := h.db.First(&defaultTenant, 1).Error; err != nil {

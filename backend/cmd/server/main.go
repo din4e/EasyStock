@@ -45,7 +45,7 @@ func main() {
 	}
 
 	// Initialize handlers
-	authHandler := handlers.NewAuthHandler(db, &cfg.JWT)
+	authHandler := handlers.NewAuthHandlerWithConfig(db, cfg)
 	categoryHandler := handlers.NewCategoryHandler(db)
 	locationHandler := handlers.NewLocationHandler(db)
 	itemHandler := handlers.NewItemHandler(db)

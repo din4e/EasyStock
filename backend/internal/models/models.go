@@ -86,7 +86,7 @@ type User struct {
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"deleted_at,omitempty"`
 
 	// 多租户支持
-	TenantID uint `gorm:"index;not null" json:"tenant_id"` // 租户ID，本地部署默认为1
+	TenantID uint `gorm:"index;not null;default:1" json:"tenant_id"` // 租户ID，本地部署默认为1
 
 	Username string `gorm:"uniqueIndex:idx_username;size:50;not null" json:"username"`
 	Email    string `gorm:"uniqueIndex:idx_email;size:100" json:"email"`

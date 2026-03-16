@@ -84,7 +84,7 @@ class ApiClient {
     return this.request<any[]>(`/categories${query}`)
   }
 
-  async createCategory(data: { name: string; description?: string; color?: string; icon?: string; parent_id?: number; sort_order?: number }) {
+  async createCategory(data: { name: string; description?: string; color?: string; icon?: string; parent_id?: number | null; sort_order?: number }) {
     return this.request<any>('/categories', {
       method: 'POST',
       body: JSON.stringify(data),
@@ -117,7 +117,7 @@ class ApiClient {
     return this.request<any[]>(`/locations${query}`)
   }
 
-  async createLocation(data: { name: string; description?: string; icon?: string; parent_id?: number; sort_order?: number }) {
+  async createLocation(data: { name: string; description?: string; icon?: string; parent_id?: number | null; sort_order?: number }) {
     return this.request<any>('/locations', {
       method: 'POST',
       body: JSON.stringify(data),
