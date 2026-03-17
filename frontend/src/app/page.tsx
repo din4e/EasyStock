@@ -7,10 +7,10 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Package, TrendingUp, AlertTriangle, DollarSign, LogOut, Plus, Barcode, ScanLine } from 'lucide-react'
+import { Package } from 'lucide-react'
 
 export default function Home() {
-  const { user, loading, login, register, logout } = useAuth()
+  const { user, loading, mounted, login, register } = useAuth()
   const router = useRouter()
   const [isLogin, setIsLogin] = useState(true)
   const [error, setError] = useState('')
@@ -22,10 +22,10 @@ export default function Home() {
   })
 
   useEffect(() => {
-    if (!loading && user) {
+    if (mounted && !loading && user) {
       router.push('/dashboard')
     }
-  }, [user, loading, router])
+  }, [user, loading, mounted, router])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -42,9 +42,10 @@ export default function Home() {
     }
   }
 
-  if (loading) {
+  // SSR: 显示加载状态，避免 hydration 不匹配
+  if (!mounted || loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>
     )

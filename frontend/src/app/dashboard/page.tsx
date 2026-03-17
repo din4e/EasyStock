@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Package, TrendingUp, AlertTriangle, DollarSign, ArrowDown, ArrowUp } from 'lucide-react'
+import { Package, TrendingUp, AlertTriangle, DollarSign, ArrowDown, ArrowUp, ScanLine } from 'lucide-react'
 import { api } from '@/lib/api'
 import Link from 'next/link'
 
@@ -124,7 +124,13 @@ export default function DashboardPage() {
             <CardTitle className="text-lg">快速操作</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-3">
+              <Link href="/dashboard/items?action=scan">
+                <Button variant="default" className="w-full h-20 flex flex-col gap-1">
+                  <ScanLine className="h-5 w-5" />
+                  <span className="text-xs">扫码添加</span>
+                </Button>
+              </Link>
               <Link href="/dashboard/items">
                 <Button variant="outline" className="w-full h-20 flex flex-col gap-1">
                   <Package className="h-5 w-5" />
@@ -134,7 +140,7 @@ export default function DashboardPage() {
               <Link href="/dashboard/items?action=add">
                 <Button variant="outline" className="w-full h-20 flex flex-col gap-1">
                   <Package className="h-5 w-5" />
-                  <span className="text-xs">添加物品</span>
+                  <span className="text-xs">手动添加</span>
                 </Button>
               </Link>
             </div>

@@ -6,10 +6,17 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
-import { Package, Plus, Search, ScanLine, Edit, Trash2, Sparkles, Camera, Receipt } from 'lucide-react'
+import { Package, Plus, Search, ScanLine, Edit, Trash2, Sparkles, Camera, Receipt, Barcode } from 'lucide-react'
 import { api } from '@/lib/api'
 import { FileUpload, RecognitionLoading } from '@/components/ui/file-upload'
 import { AIResultModal, RecognizedItem } from '@/components/ui/ai-result-modal'
+import dynamic from 'next/dynamic'
+
+// 动态导入 BarcodeScanner 组件，禁用 SSR
+const BarcodeScanner = dynamic(
+  () => import('@/components/ui/barcode-scanner').then(mod => ({ default: mod.BarcodeScanner })),
+  { ssr: false }
+)
 
 interface Item {
   id: number
@@ -62,6 +69,10 @@ export default function ItemsPage() {
   } | null>(null)
   const [aiStatus, setAIStatus] = useState<{ configured: boolean; provider: string } | null>(null)
 
+  // Barcode scanner states
+  const [showScanner, setShowScanner] = useState(false)
+  const [scannerMode, setScannerMode] = useState<'lookup' | 'add'>('add')
+
   const [formData, setFormData] = useState({
     name: '',
     barcode: '',
@@ -79,8 +90,11 @@ export default function ItemsPage() {
   useEffect(() => {
     loadData()
     checkAIStatus()
-    if (searchParams.get('action') === 'add') {
+    const action = searchParams.get('action')
+    if (action === 'add') {
       setShowModal(true)
+    } else if (action === 'scan') {
+      openScanner('add')
     }
   }, [searchParams])
 
@@ -246,6 +260,49 @@ export default function ItemsPage() {
     setShowAIUpload(true)
   }
 
+  // Barcode scanner handlers
+  const handleBarcodeScan = async (barcode: string) => {
+    setShowScanner(false)
+
+    if (scannerMode === 'lookup') {
+      // Lookup mode: search for existing item
+      try {
+        const item = await api.getItemByBarcode(barcode)
+        // Show item details or edit modal
+        handleEdit(item)
+      } catch (error) {
+        // Item not found, switch to add mode with barcode pre-filled
+        setFormData({
+          ...formData,
+          barcode: barcode,
+          name: '',
+        })
+        setShowModal(true)
+      }
+    } else {
+      // Add mode: pre-fill barcode in form
+      try {
+        // First check if item exists
+        const existingItem = await api.getItemByBarcode(barcode)
+        // If exists, show edit modal
+        handleEdit(existingItem)
+      } catch {
+        // Not found, pre-fill barcode in add form
+        setFormData({
+          ...formData,
+          barcode: barcode,
+          name: '',
+        })
+        setShowModal(true)
+      }
+    }
+  }
+
+  const openScanner = (mode: 'lookup' | 'add') => {
+    setScannerMode(mode)
+    setShowScanner(true)
+  }
+
   if (loading && items.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -261,7 +318,11 @@ export default function ItemsPage() {
           <h1 className="text-2xl font-bold">物品管理</h1>
           <p className="text-muted-foreground">管理您的库存物品</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          <Button variant="outline" onClick={() => openScanner('add')}>
+            <ScanLine className="h-4 w-4 mr-2" />
+            扫码添加
+          </Button>
           {aiStatus?.configured && (
             <Button
               variant="outline"
@@ -424,9 +485,19 @@ export default function ItemsPage() {
                         id="barcode"
                         value={formData.barcode}
                         onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
+                        className="flex-1"
                       />
-                      <Button type="button" variant="secondary" size="icon">
-                        <ScanLine className="h-4 w-4" />
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="icon"
+                        onClick={() => {
+                          setScannerMode('add')
+                          setShowScanner(true)
+                        }}
+                        title="扫描条形码"
+                      >
+                        <Barcode className="h-4 w-4" />
                       </Button>
                     </div>
                   </div>
@@ -606,6 +677,18 @@ export default function ItemsPage() {
           locations={locations}
           onConfirm={handleAIConfirm}
           onCancel={() => setAIResult(null)}
+        />
+      )}
+
+      {/* Barcode Scanner */}
+      {showScanner && (
+        <BarcodeScanner
+          onScan={handleBarcodeScan}
+          onClose={() => setShowScanner(false)}
+          onError={(error) => {
+            console.error('Scanner error:', error)
+            alert(error)
+          }}
         />
       )}
     </div>

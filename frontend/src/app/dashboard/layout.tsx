@@ -12,22 +12,23 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode
 }) {
-  const { user, loading, logout } = useAuth()
+  const { user, loading, mounted, logout } = useAuth()
   const router = useRouter()
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   useEffect(() => {
-    if (!loading && !user) {
+    if (mounted && !loading && !user) {
       router.push('/')
     }
-  }, [user, loading, router])
+  }, [user, loading, mounted, router])
 
   const handleLogout = () => {
     logout()
     router.push('/')
   }
 
-  if (loading || !user) {
+  // SSR: 显示加载状态，避免 hydration 不匹配
+  if (!mounted || loading || !user) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>

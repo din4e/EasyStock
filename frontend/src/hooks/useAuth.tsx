@@ -15,6 +15,7 @@ interface User {
 interface AuthContextType {
   user: User | null
   loading: boolean
+  mounted: boolean
   login: (username: string, password: string) => Promise<void>
   register: (username: string, email: string, password: string, nickname?: string) => Promise<void>
   logout: () => void
@@ -25,8 +26,12 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
+  const [mounted, setMounted] = useState(false)
 
+  // 只在客户端挂载后才执行
   useEffect(() => {
+    setMounted(true)
+
     const token = localStorage.getItem('token')
     if (token) {
       api.getProfile()
@@ -56,7 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, loading, mounted, login, register, logout }}>
       {children}
     </AuthContext.Provider>
   )
