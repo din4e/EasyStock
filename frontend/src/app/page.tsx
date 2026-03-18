@@ -7,13 +7,15 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Package } from 'lucide-react'
+import { Package, Settings } from 'lucide-react'
 
 export default function Home() {
   const { user, loading, mounted, login, register } = useAuth()
   const router = useRouter()
   const [isLogin, setIsLogin] = useState(true)
   const [error, setError] = useState('')
+  const [showApiSettings, setShowApiSettings] = useState(false)
+  const [apiUrl, setApiUrl] = useState('')
   const [formData, setFormData] = useState({
     username: '',
     email: '',
@@ -26,6 +28,28 @@ export default function Home() {
       router.push('/dashboard')
     }
   }, [user, loading, mounted, router])
+
+  useEffect(() => {
+    if (mounted) {
+      const saved = localStorage.getItem('api_url')
+      if (saved) {
+        setApiUrl(saved)
+      } else {
+        // 自动检测当前主机
+        const { protocol, hostname } = window.location
+        setApiUrl(`${protocol}//${hostname}:8080/api/v1`)
+      }
+    }
+  }, [mounted])
+
+  const handleSaveApiUrl = () => {
+    const trimmed = apiUrl.trim()
+    if (trimmed) {
+      localStorage.setItem('api_url', trimmed)
+      setShowApiSettings(false)
+      setError('')
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -70,73 +94,113 @@ export default function Home() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {!isLogin && (
-              <>
+          {showApiSettings ? (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="apiUrl">API 服务器地址</Label>
+                <Input
+                  id="apiUrl"
+                  placeholder="http://192.168.1.100:8080/api/v1"
+                  value={apiUrl}
+                  onChange={(e) => setApiUrl(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  手机访问时需设置为电脑的局域网IP地址
+                </p>
+              </div>
+              <Button onClick={handleSaveApiUrl} className="w-full">
+                保存并继续
+              </Button>
+              <Button variant="ghost" onClick={() => setShowApiSettings(false)} className="w-full">
+                取消
+              </Button>
+            </div>
+          ) : (
+            <>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                {!isLogin && (
+                  <>
+                    <div className="space-y-2">
+                      <Label htmlFor="email">邮箱</Label>
+                      <Input
+                        id="email"
+                        type="email"
+                        placeholder="your@email.com"
+                        value={formData.email}
+                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="nickname">昵称</Label>
+                      <Input
+                        id="nickname"
+                        placeholder="您的昵称"
+                        value={formData.nickname}
+                        onChange={(e) => setFormData({ ...formData, nickname: e.target.value })}
+                      />
+                    </div>
+                  </>
+                )}
                 <div className="space-y-2">
-                  <Label htmlFor="email">邮箱</Label>
+                  <Label htmlFor="username">用户名</Label>
                   <Input
-                    id="email"
-                    type="email"
-                    placeholder="your@email.com"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    id="username"
+                    placeholder="用户名"
+                    value={formData.username}
+                    onChange={(e) => setFormData({ ...formData, username: e.target.value })}
                     required
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="nickname">昵称</Label>
+                  <Label htmlFor="password">密码</Label>
                   <Input
-                    id="nickname"
-                    placeholder="您的昵称"
-                    value={formData.nickname}
-                    onChange={(e) => setFormData({ ...formData, nickname: e.target.value })}
+                    id="password"
+                    type="password"
+                    placeholder="密码"
+                    value={formData.password}
+                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    required
                   />
                 </div>
-              </>
-            )}
-            <div className="space-y-2">
-              <Label htmlFor="username">用户名</Label>
-              <Input
-                id="username"
-                placeholder="用户名"
-                value={formData.username}
-                onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">密码</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="密码"
-                value={formData.password}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                required
-              />
-            </div>
-            {error && (
-              <p className="text-sm text-destructive">{error}</p>
-            )}
-            <Button type="submit" className="w-full">
-              {isLogin ? '登录' : '注册'}
-            </Button>
-          </form>
-          <div className="mt-4 text-center text-sm">
-            {isLogin ? '还没有账户？' : '已有账户？'}
+                {error && (
+                  <p className="text-sm text-destructive">{error}</p>
+                )}
+                <Button type="submit" className="w-full">
+                  {isLogin ? '登录' : '注册'}
+                </Button>
+              </form>
+              <div className="mt-4 text-center text-sm">
+                {isLogin ? '还没有账户？' : '已有账户？'}
+                <button
+                  type="button"
+                  className="text-primary hover:underline ml-1"
+                  onClick={() => {
+                    setIsLogin(!isLogin)
+                    setError('')
+                  }}
+                >
+                  {isLogin ? '立即注册' : '立即登录'}
+                </button>
+              </div>
+            </>
+          )}
+        </CardContent>
+        {!showApiSettings && (
+          <div className="px-6 pb-4 flex justify-center">
             <button
               type="button"
-              className="text-primary hover:underline ml-1"
+              className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1"
               onClick={() => {
-                setIsLogin(!isLogin)
+                setShowApiSettings(true)
                 setError('')
               }}
             >
-              {isLogin ? '立即注册' : '立即登录'}
+              <Settings className="h-3 w-3" />
+              设置服务器地址
             </button>
           </div>
-        </CardContent>
+        )}
       </Card>
     </div>
   )

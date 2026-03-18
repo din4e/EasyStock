@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Package, TrendingUp, AlertTriangle, DollarSign, ArrowDown, ArrowUp, ScanLine } from 'lucide-react'
+import { Package, TrendingUp, AlertTriangle, DollarSign, ArrowDown, ArrowUp, ScanLine, Plus, Tags, MapPin } from 'lucide-react'
 import { api } from '@/lib/api'
 import Link from 'next/link'
 
@@ -118,35 +117,50 @@ export default function DashboardPage() {
             </div>
           </CardContent>
         </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">快速操作</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-3 gap-3">
-              <Link href="/dashboard/items?action=scan">
-                <Button variant="default" className="w-full h-20 flex flex-col gap-1">
-                  <ScanLine className="h-5 w-5" />
-                  <span className="text-xs">扫码添加</span>
-                </Button>
-              </Link>
-              <Link href="/dashboard/items">
-                <Button variant="outline" className="w-full h-20 flex flex-col gap-1">
-                  <Package className="h-5 w-5" />
-                  <span className="text-xs">物品管理</span>
-                </Button>
-              </Link>
-              <Link href="/dashboard/items?action=add">
-                <Button variant="outline" className="w-full h-20 flex flex-col gap-1">
-                  <Package className="h-5 w-5" />
-                  <span className="text-xs">手动添加</span>
-                </Button>
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
       </div>
+
+      {/* Quick Actions */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base font-medium">快速操作</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <Link href="/dashboard/items?action=scan" className="group">
+              <div className="flex flex-col items-center gap-2 p-4 rounded-xl bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-950/40 dark:to-blue-900/20 hover:from-blue-100 dark:hover:from-blue-950/60 hover:to-blue-100/70 dark:hover:to-blue-900/30 border border-blue-200/50 dark:border-blue-800/30 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5">
+                <div className="p-2.5 rounded-full bg-blue-500/10 group-hover:bg-blue-500/20 transition-colors">
+                  <ScanLine className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                </div>
+                <span className="text-sm font-medium text-blue-700 dark:text-blue-300">扫码添加</span>
+              </div>
+            </Link>
+            <Link href="/dashboard/items?action=add" className="group">
+              <div className="flex flex-col items-center gap-2 p-4 rounded-xl bg-gradient-to-br from-green-50 to-green-100/50 dark:from-green-950/40 dark:to-green-900/20 hover:from-green-100 dark:hover:from-green-950/60 hover:to-green-100/70 dark:hover:to-green-900/30 border border-green-200/50 dark:border-green-800/30 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5">
+                <div className="p-2.5 rounded-full bg-green-500/10 group-hover:bg-green-500/20 transition-colors">
+                  <Plus className="h-5 w-5 text-green-600 dark:text-green-400" />
+                </div>
+                <span className="text-sm font-medium text-green-700 dark:text-green-300">手动添加</span>
+              </div>
+            </Link>
+            <Link href="/dashboard/categories" className="group">
+              <div className="flex flex-col items-center gap-2 p-4 rounded-xl bg-gradient-to-br from-purple-50 to-purple-100/50 dark:from-purple-950/40 dark:to-purple-900/20 hover:from-purple-100 dark:hover:from-purple-950/60 hover:to-purple-100/70 dark:hover:to-purple-900/30 border border-purple-200/50 dark:border-purple-800/30 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5">
+                <div className="p-2.5 rounded-full bg-purple-500/10 group-hover:bg-purple-500/20 transition-colors">
+                  <Tags className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                </div>
+                <span className="text-sm font-medium text-purple-700 dark:text-purple-300">分类管理</span>
+              </div>
+            </Link>
+            <Link href="/dashboard/locations" className="group">
+              <div className="flex flex-col items-center gap-2 p-4 rounded-xl bg-gradient-to-br from-orange-50 to-orange-100/50 dark:from-orange-950/40 dark:to-orange-900/20 hover:from-orange-100 dark:hover:from-orange-950/60 hover:to-orange-100/70 dark:hover:to-orange-900/30 border border-orange-200/50 dark:border-orange-800/30 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5">
+                <div className="p-2.5 rounded-full bg-orange-500/10 group-hover:bg-orange-500/20 transition-colors">
+                  <MapPin className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+                </div>
+                <span className="text-sm font-medium text-orange-700 dark:text-orange-300">位置管理</span>
+              </div>
+            </Link>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Alerts */}
       {(stats?.expiring_soon || 0) > 0 && (

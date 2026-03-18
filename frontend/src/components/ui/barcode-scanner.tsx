@@ -17,6 +17,8 @@ export function BarcodeScanner({ onScan, onClose, onError }: BarcodeScannerProps
   const [hasPermission, setHasPermission] = useState<boolean | null>(null)
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([])
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>('')
+  const [errorMessage, setErrorMessage] = useState<string>('')
+  const [isInitialized, setIsInitialized] = useState(false)
   const lastScannedRef = useRef<string>('')
   const lastScannedTimeRef = useRef<number>(0)
   const readerRef = useRef<any>(null)
@@ -47,9 +49,17 @@ export function BarcodeScanner({ onScan, onClose, onError }: BarcodeScannerProps
 
         const codeReader = new BrowserMultiFormatReader()
         readerRef.current = codeReader
+        setIsInitialized(true)
 
         // Get available video devices
-        const videoInputDevices = await codeReader.listVideoInputDevices()
+        let videoInputDevices: MediaDeviceInfo[] = []
+        try {
+          videoInputDevices = await codeReader.listVideoInputDevices()
+        } catch (enumErr: any) {
+          // Browser may not support device enumeration (e.g., insecure context, some mobile browsers)
+          // Fall through and try to use camera without device selection
+          console.warn('Cannot enumerate video devices:', enumErr.message)
+        }
 
         if (!mountedRef.current) return
 
@@ -65,15 +75,21 @@ export function BarcodeScanner({ onScan, onClose, onError }: BarcodeScannerProps
               device.label.toLowerCase().includes('environment')
           )
           setSelectedDeviceId(backCamera?.deviceId || videoInputDevices[0].deviceId)
+        } else if (!videoInputDevices.length) {
+          // No devices found (or enumeration not supported) - try to scan with default camera
+          setSelectedDeviceId('')
+          setIsLoading(false)
         } else {
           setIsLoading(false)
-          onError?.('未找到摄像头设备')
+          setErrorMessage('未找到摄像头设备。请确保设备已连接且浏览器有权限访问。')
         }
       } catch (err: any) {
         if (!mountedRef.current) return
         console.error('Failed to initialize scanner:', err)
         setIsLoading(false)
-        onError?.('初始化扫描器失败: ' + err.message)
+        const msg = '初始化扫描器失败: ' + (err.message || String(err))
+        setErrorMessage(msg)
+        onError?.(msg)
       }
     }
 
@@ -84,19 +100,31 @@ export function BarcodeScanner({ onScan, onClose, onError }: BarcodeScannerProps
 
     return () => {
       mountedRef.current = false
+      setIsInitialized(false)
       stopScanning()
     }
   }, [onError, stopScanning])
 
   const startScanning = useCallback(async () => {
-    if (!readerRef.current || !selectedDeviceId || !videoRef.current) return
+    if (!readerRef.current || !videoRef.current) return
+
+    // Check if getUserMedia is available (requires HTTPS or localhost)
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setIsScanning(false)
+      setIsLoading(false)
+      const msg = '当前浏览器不支持摄像头访问。请确保使用 HTTPS 访问或使用 localhost。'
+      setErrorMessage(msg)
+      onError?.(msg)
+      return
+    }
 
     setIsScanning(true)
     setHasPermission(null)
 
     try {
+      // Use selectedDeviceId if available, otherwise null for default camera
       await readerRef.current.decodeFromVideoDevice(
-        selectedDeviceId,
+        selectedDeviceId || null,
         videoRef.current,
         (result: any, error: any) => {
           if (result) {
@@ -134,12 +162,12 @@ export function BarcodeScanner({ onScan, onClose, onError }: BarcodeScannerProps
     }
   }, [selectedDeviceId, onScan, onError])
 
-  // Start scanning when device is selected
+  // Start scanning once scanner is initialized
   useEffect(() => {
-    if (selectedDeviceId && !isScanning && mountedRef.current) {
+    if (isInitialized && !isScanning && mountedRef.current) {
       startScanning()
     }
-  }, [selectedDeviceId, isScanning, startScanning])
+  }, [isInitialized, isScanning, startScanning])
 
   const switchCamera = () => {
     if (devices.length <= 1) return
@@ -205,6 +233,25 @@ export function BarcodeScanner({ onScan, onClose, onError }: BarcodeScannerProps
               <p className="text-sm text-gray-400 mb-4">
                 请在浏览器设置中允许访问摄像头，然后刷新页面重试
               </p>
+              <Button variant="outline" onClick={onClose}>
+                关闭
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Error state */}
+        {errorMessage && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/80 p-4">
+            <div className="text-center text-white max-w-sm">
+              <Camera className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p className="text-lg mb-2">无法启动扫描</p>
+              <p className="text-sm text-gray-400 mb-4">{errorMessage}</p>
+              {errorMessage.includes('摄像头') && (
+                <p className="text-xs text-gray-500 mb-4">
+                  💡 提示：条码扫描需要摄像头。桌面电脑请使用手机或外接摄像头访问此页面。
+                </p>
+              )}
               <Button variant="outline" onClick={onClose}>
                 关闭
               </Button>

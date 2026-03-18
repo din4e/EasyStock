@@ -685,10 +685,6 @@ export default function ItemsPage() {
         <BarcodeScanner
           onScan={handleBarcodeScan}
           onClose={() => setShowScanner(false)}
-          onError={(error) => {
-            console.error('Scanner error:', error)
-            alert(error)
-          }}
         />
       )}
     </div>

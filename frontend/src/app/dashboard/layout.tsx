@@ -5,14 +5,14 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
-import { Package, LogOut, LayoutDashboard, Tags, MapPin, Menu, X } from 'lucide-react'
+import { Package, LogOut, LayoutDashboard, Tags, MapPin, Menu, X, Users } from 'lucide-react'
 
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  const { user, loading, mounted, logout } = useAuth()
+  const { user, loading, mounted, logout, isAdmin } = useAuth()
   const router = useRouter()
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
@@ -41,6 +41,7 @@ export default function DashboardLayout({
     { href: '/dashboard/items', icon: Package, label: '物品管理' },
     { href: '/dashboard/categories', icon: Tags, label: '分类管理' },
     { href: '/dashboard/locations', icon: MapPin, label: '位置管理' },
+    ...(isAdmin ? [{ href: '/dashboard/users', icon: Users, label: '用户管理' }] : []),
   ]
 
   return (

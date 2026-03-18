@@ -1,7 +1,3 @@
-const API_BASE = typeof window !== 'undefined'
-  ? (localStorage.getItem('api_url') || 'http://localhost:8080/api/v1')
-  : 'http://localhost:8080/api/v1'
-
 class ApiClient {
   private token: string | null = null
 
@@ -26,6 +22,19 @@ class ApiClient {
     return this.token
   }
 
+  private getApiBase() {
+    if (typeof window === 'undefined') return 'http://localhost:8080/api/v1'
+    // 优先使用用户配置的地址
+    const configured = localStorage.getItem('api_url')
+    if (configured) return configured
+    // 尝试从环境变量获取
+    const env = process.env.NEXT_PUBLIC_API_URL
+    if (env) return env
+    // 自动检测：使用当前页面的协议和主机，后端默认端口 8080
+    const { protocol, hostname } = window.location
+    return `${protocol}//${hostname}:8080/api/v1`
+  }
+
   private async request<T>(
     endpoint: string,
     options: RequestInit = {}
@@ -38,13 +47,16 @@ class ApiClient {
       headers['Authorization'] = `Bearer ${this.token}`
     }
 
-    const response = await fetch(`${API_BASE}${endpoint}`, {
+    const apiBase = this.getApiBase()
+    const response = await fetch(`${apiBase}${endpoint}`, {
       ...options,
       headers: { ...headers, ...options.headers as Record<string, string> },
+    }).catch((err) => {
+      throw new Error(`无法连接到服务器，请检查网络或API地址设置 (${err.message})`)
     })
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: 'Request failed' }))
+      const error = await response.json().catch(() => ({ error: `请求失败 (${response.status})` }))
       throw new Error(error.error || 'Request failed')
     }
 
@@ -76,6 +88,35 @@ class ApiClient {
 
   async getProfile() {
     return this.request<any>('/profile')
+  }
+
+  // Users management
+  async getUsers() {
+    return this.request<any[]>('/users')
+  }
+
+  async getUser(id: number) {
+    return this.request<any>(`/users/${id}`)
+  }
+
+  async updateUser(id: number, data: { nickname?: string; email?: string; role?: string; is_active?: boolean }) {
+    return this.request<any>(`/users/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async deleteUser(id: number) {
+    return this.request<{ message: string }>(`/users/${id}`, {
+      method: 'DELETE',
+    })
+  }
+
+  async updatePassword(id: number, newPassword: string, oldPassword?: string) {
+    return this.request<{ message: string }>(`/users/${id}/password`, {
+      method: 'PUT',
+      body: JSON.stringify({ new_password: newPassword, old_password: oldPassword || '' }),
+    })
   }
 
   // Categories
@@ -253,7 +294,8 @@ class ApiClient {
       headers['Authorization'] = `Bearer ${this.token}`
     }
 
-    const response = await fetch(`${API_BASE}/ai/recognize`, {
+    const apiBase = this.getApiBase()
+    const response = await fetch(`${apiBase}/ai/recognize`, {
       method: 'POST',
       headers,
       body: formData,
@@ -312,7 +354,8 @@ class ApiClient {
       headers['Authorization'] = `Bearer ${this.token}`
     }
 
-    const response = await fetch(`${API_BASE}/upload`, {
+    const apiBase = this.getApiBase()
+    const response = await fetch(`${apiBase}/upload`, {
       method: 'POST',
       headers,
       body: formData,

@@ -10,6 +10,7 @@ interface User {
   nickname: string
   role: string
   avatar?: string
+  is_active?: boolean
 }
 
 interface AuthContextType {
@@ -19,6 +20,7 @@ interface AuthContextType {
   login: (username: string, password: string) => Promise<void>
   register: (username: string, email: string, password: string, nickname?: string) => Promise<void>
   logout: () => void
+  isAdmin: boolean
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -61,7 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, mounted, login, register, logout }}>
+    <AuthContext.Provider value={{ user, loading, mounted, login, register, logout, isAdmin: user?.role === 'admin' || user?.role === 'owner' }}>
       {children}
     </AuthContext.Provider>
   )

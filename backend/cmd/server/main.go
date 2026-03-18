@@ -11,6 +11,7 @@ import (
 	"easystock/internal/storage"
 	"easystock/internal/utils"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
 
@@ -46,6 +47,7 @@ func main() {
 
 	// Initialize handlers
 	authHandler := handlers.NewAuthHandlerWithConfig(db, cfg)
+	userHandler := handlers.NewUserHandler(db)
 	categoryHandler := handlers.NewCategoryHandler(db)
 	locationHandler := handlers.NewLocationHandler(db)
 	itemHandler := handlers.NewItemHandler(db)
@@ -56,19 +58,14 @@ func main() {
 	// Setup Gin
 	r := gin.Default()
 
-	// CORS middleware
-	r.Use(func(c *gin.Context) {
-		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
-		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Tenant-ID")
-
-		if c.Request.Method == "OPTIONS" {
-			c.AbortWithStatus(204)
-			return
-		}
-
-		c.Next()
-	})
+	// CORS - must be global middleware so it runs before route-specific middleware (like auth)
+	r.Use(cors.New(cors.Config{
+		AllowAllOrigins:  true,
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization", "X-Tenant-ID"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+	}))
 
 	// Health check
 	r.GET("/health", func(c *gin.Context) {
@@ -104,6 +101,17 @@ func main() {
 			// User profile
 			protected.GET("/profile", authHandler.GetProfile)
 			protected.PUT("/profile", authHandler.UpdateProfile)
+
+			// Users management (admin+)
+			users := protected.Group("/users")
+			users.Use(middleware.RequireAdmin())
+			{
+				users.GET("", userHandler.List)
+				users.GET("/:id", userHandler.Get)
+				users.PUT("/:id", userHandler.Update)
+				users.DELETE("/:id", userHandler.Delete)
+				users.PUT("/:id/password", userHandler.UpdatePassword)
+			}
 
 			// Categories
 			categories := protected.Group("/categories")
