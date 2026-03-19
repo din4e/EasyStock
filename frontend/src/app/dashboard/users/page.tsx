@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Users, Shield, ShieldCheck, ShieldAlert, Trash2, Edit, Key, UserX, UserCheck } from 'lucide-react'
+import { CheckCircle, XCircle } from 'lucide-react'
 
 interface User {
   id: number
@@ -32,8 +32,10 @@ export default function UsersPage() {
   const [loading, setLoading] = useState(true)
   const [editingUser, setEditingUser] = useState<User | null>(null)
   const [showPasswordModal, setShowPasswordModal] = useState(false)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [deleteTargetUser, setDeleteTargetUser] = useState<User | null>(null)
   const [passwordUser, setPasswordUser] = useState<User | null>(null)
-  const [newPassword, setNewPassword] = useState('')
+  const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
   const [oldPassword, setOldPassword] = useState('')
 
   useEffect(() => {
@@ -60,7 +62,7 @@ export default function UsersPage() {
       await api.updateUser(userId, { role: newRole })
       loadUsers()
     } catch (error) {
-      alert('修改角色失败: ' + (error as Error).message)
+      setNotification({ type: 'error', message: '修改角色失败: ' + (error as Error).message })
     }
   }
 
@@ -69,38 +71,42 @@ export default function UsersPage() {
       await api.updateUser(user.id, { is_active: !user.is_active })
       loadUsers()
     } catch (error) {
-      alert('修改状态失败: ' + (error as Error).message)
+      setNotification({ type: 'error', message: '修改状态失败: ' + (error as Error).message })
     }
   }
 
-  const handleDelete = async (user: User) => {
-    if (user.role === 'owner') {
-      alert('无法删除所有者')
-      return
-    }
-    if (!confirm(`确定要删除用户「${user.nickname || user.username}」吗？此操作不可撤销。`)) return
+  const openDeleteModal = (user: User) => {
+    if (user.role === 'owner') return
+    setDeleteTargetUser(user)
+    setShowDeleteModal(true)
+  }
+
+  const confirmDelete = async () => {
+    if (!deleteTargetUser) return
     try {
-      await api.deleteUser(user.id)
+      await api.deleteUser(deleteTargetUser.id)
       loadUsers()
+      setShowDeleteModal(false)
+      setDeleteTargetUser(null)
     } catch (error) {
-      alert('删除失败: ' + (error as Error).message)
+      setNotification({ type: 'error', message: '删除失败: ' + (error as Error).message })
     }
   }
 
   const handlePasswordChange = async () => {
     if (!newPassword || newPassword.length < 6) {
-      alert('密码长度至少6位')
+      setNotification({ type: 'error', message: '密码长度至少6位' })
       return
     }
     try {
       await api.updatePassword(passwordUser!.id, newPassword, oldPassword || undefined)
-      alert('密码修改成功')
+      setNotification({ type: 'success', message: '密码修改成功' })
       setShowPasswordModal(false)
       setNewPassword('')
       setOldPassword('')
       setPasswordUser(null)
     } catch (error) {
-      alert('修改失败: ' + (error as Error).message)
+      setNotification({ type: 'error', message: '修改失败: ' + (error as Error).message })
     }
   }
 
@@ -214,7 +220,7 @@ export default function UsersPage() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => handleDelete(user)}
+                        onClick={() => openDeleteModal(user)}
                         title="删除用户"
                         disabled={user.role === 'owner' || user.id === currentUser?.id}
                       >
@@ -235,6 +241,46 @@ export default function UsersPage() {
         <span>活跃: {users.filter(u => u.is_active).length}</span>
         <span>管理员: {users.filter(u => u.role === 'admin' || u.role === 'owner').length}</span>
       </div>
+
+      {/* Delete Confirm Modal */}
+      {showDeleteModal && deleteTargetUser && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-background rounded-lg w-full max-w-sm">
+            <div className="p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="h-10 w-10 rounded-full bg-destructive/10 flex items-center justify-center flex-shrink-0">
+                  <Trash2 className="h-5 w-5 text-destructive" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold">删除用户</h2>
+                  <p className="text-sm text-muted-foreground">此操作不可撤销</p>
+                </div>
+              </div>
+
+              <p className="text-sm text-muted-foreground mb-6">
+                确定要删除用户 <span className="font-medium text-foreground">{deleteTargetUser.nickname || deleteTargetUser.username}</span> 吗？
+              </p>
+
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => { setShowDeleteModal(false); setDeleteTargetUser(null) }}
+                >
+                  取消
+                </Button>
+                <Button
+                  variant="destructive"
+                  className="flex-1"
+                  onClick={confirmDelete}
+                >
+                  删除
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Password Modal */}
       {showPasswordModal && passwordUser && (
@@ -277,6 +323,31 @@ export default function UsersPage() {
                 </Button>
                 <Button className="flex-1" onClick={handlePasswordChange}>
                   确认修改
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Notification Modal */}
+      {notification && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4" onClick={() => setNotification(null)}>
+          <div className="bg-background rounded-lg w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+            <div className="p-6">
+              <div className="flex items-center gap-3 mb-2">
+                {notification.type === 'success' ? (
+                  <CheckCircle className="h-6 w-6 text-green-500 flex-shrink-0" />
+                ) : (
+                  <XCircle className="h-6 w-6 text-destructive flex-shrink-0" />
+                )}
+                <h2 className="text-lg font-bold">
+                  {notification.type === 'success' ? '操作成功' : '操作失败'}
+                </h2>
+              </div>
+              <p className="text-sm text-muted-foreground mt-2 ml-9">{notification.message}</p>
+              <div className="mt-6">
+                <Button className="w-full" onClick={() => setNotification(null)}>
+                  确定
                 </Button>
               </div>
             </div>

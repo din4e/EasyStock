@@ -122,8 +122,33 @@ export function BarcodeScanner({ onScan, onClose, onError }: BarcodeScannerProps
     setHasPermission(null)
 
     try {
-      // Use selectedDeviceId if available, otherwise null for default camera
-      await readerRef.current.decodeFromVideoDevice(
+      // On mobile, explicitly request the back camera via getUserMedia first
+      // to ensure proper permission and facingMode
+      const videoConstraints: MediaStreamConstraints = selectedDeviceId
+        ? { deviceId: { exact: selectedDeviceId } }
+        : { video: { facingMode: 'environment' }, audio: false }
+
+      // Get the stream first to ensure camera permission
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia(videoConstraints)
+        // Attach stream to video element
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream
+        }
+      } catch (permErr: any) {
+        if (permErr.name === 'NotAllowedError') {
+          setHasPermission(false)
+          setIsScanning(false)
+          setIsLoading(false)
+          onError?.('请允许访问摄像头以使用扫描功能')
+          return
+        }
+        // Fall through - maybe decodeFromVideoDevice can handle it
+        console.warn('getUserMedia failed, trying decodeFromVideoDevice:', permErr)
+      }
+
+      // Start decoding
+      readerRef.current.decodeFromVideoDevice(
         selectedDeviceId || null,
         videoRef.current,
         (result: any, error: any) => {
