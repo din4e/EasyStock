@@ -8,6 +8,8 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { Package, Plus, Search, ScanLine, Edit, Trash2, Sparkles, Camera, Receipt, Barcode } from 'lucide-react'
 import { api } from '@/lib/api'
+import { offlineDB } from '@/lib/offline-db'
+import { useOfflineSync } from '@/hooks/useOfflineSync'
 import { FileUpload, RecognitionLoading } from '@/components/ui/file-upload'
 import { AIResultModal, RecognizedItem } from '@/components/ui/ai-result-modal'
 import dynamic from 'next/dynamic'
@@ -47,6 +49,7 @@ type RecognitionType = 'product' | 'receipt' | 'barcode'
 
 export default function ItemsPage() {
   const searchParams = useSearchParams()
+  const { recordOfflineOp } = useOfflineSync()
   const [items, setItems] = useState<Item[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [locations, setLocations] = useState<Location[]>([])
@@ -99,17 +102,56 @@ export default function ItemsPage() {
   }, [searchParams])
 
   const loadData = async () => {
+    // 离线模式：从 IndexedDB 加载缓存数据
+    if (!navigator.onLine) {
+      try {
+        const [cachedItems, cachedCategories, cachedLocations] = await Promise.all([
+          offlineDB.getCachedItems<Item>(),
+          offlineDB.getCachedCategories<Category>(),
+          offlineDB.getCachedLocations<Location>(),
+        ])
+        setItems(cachedItems)
+        setCategories(cachedCategories)
+        setLocations(cachedLocations)
+      } catch (error) {
+        console.error('Failed to load offline data:', error)
+      } finally {
+        setLoading(false)
+      }
+      return
+    }
+
+    // 在线模式：从 API 加载并缓存到 IndexedDB
     try {
       const [itemsData, categoriesData, locationsData] = await Promise.all([
         api.getItems(),
         api.getCategories(),
         api.getLocations(),
       ])
+      // 缓存数据
+      await Promise.all([
+        offlineDB.cacheItems(itemsData as unknown as Record<string, unknown>[]),
+        offlineDB.cacheCategories(categoriesData as unknown as Record<string, unknown>[]),
+        offlineDB.cacheLocations(locationsData as unknown as Record<string, unknown>[]),
+      ])
       setItems(itemsData)
       setCategories(categoriesData)
       setLocations(locationsData)
     } catch (error) {
       console.error('Failed to load data:', error)
+      // API 失败时尝试加载缓存
+      try {
+        const [cachedItems, cachedCategories, cachedLocations] = await Promise.all([
+          offlineDB.getCachedItems<Item>(),
+          offlineDB.getCachedCategories<Category>(),
+          offlineDB.getCachedLocations<Location>(),
+        ])
+        setItems(cachedItems)
+        setCategories(cachedCategories)
+        setLocations(cachedLocations)
+      } catch {
+        // 缓存也失败
+      }
     } finally {
       setLoading(false)
     }
@@ -142,16 +184,38 @@ export default function ItemsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    try {
-      const data = {
-        ...formData,
-        quantity: Number(formData.quantity),
-        price: Number(formData.price),
-        cost: Number(formData.cost),
-        expired_at: formData.expired_at || undefined,
-        category_id: formData.category_id ? Number(formData.category_id) : undefined,
-        location_id: formData.location_id ? Number(formData.location_id) : undefined,
+    const data = {
+      ...formData,
+      quantity: Number(formData.quantity),
+      price: Number(formData.price),
+      cost: Number(formData.cost),
+      expired_at: formData.expired_at || undefined,
+      category_id: formData.category_id ? Number(formData.category_id) : undefined,
+      location_id: formData.location_id ? Number(formData.location_id) : undefined,
+    }
+
+    // 离线模式：记录操作到 IndexedDB，稍后同步
+    if (!navigator.onLine) {
+      if (editingItem) {
+        // 离线更新
+        await recordOfflineOp('update', 'items', { ...data, id: editingItem.id })
+        // 更新本地缓存显示
+        const updatedItems = items.map(item =>
+          item.id === editingItem.id ? { ...item, ...data, expired_at: data.expired_at ?? null } : item
+        )
+        setItems(updatedItems)
+      } else {
+        // 离线创建 - 记录到同步队列，本地显示不变，等同步完成后刷新
+        await recordOfflineOp('create', 'items', data)
       }
+
+      setShowModal(false)
+      resetForm()
+      return
+    }
+
+    // 在线模式：直接调用 API
+    try {
       if (editingItem) {
         await api.updateItem(editingItem.id, data)
       } else {
@@ -162,6 +226,15 @@ export default function ItemsPage() {
       loadData()
     } catch (error) {
       console.error('Failed to save item:', error)
+      // API 失败时降级到离线模式
+      const tempId = Date.now()
+      if (editingItem) {
+        await recordOfflineOp('update', 'items', { ...data, id: editingItem.id })
+      } else {
+        await recordOfflineOp('create', 'items', data)
+      }
+      setShowModal(false)
+      resetForm()
     }
   }
 
@@ -183,13 +256,40 @@ export default function ItemsPage() {
     setShowModal(true)
   }
 
+  const [deleteTarget, setDeleteTarget] = useState<Item | null>(null)
+
   const handleDelete = async (id: number) => {
-    if (!confirm('确定要删除这个物品吗？')) return
+    const target = items.find(i => i.id === id)
+    if (!target) return
+    setDeleteTarget(target)
+  }
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return
+
+    // 离线模式：记录删除操作
+    if (!navigator.onLine) {
+      await recordOfflineOp('delete', 'items', { id: deleteTarget.id })
+      // 从本地缓存中移除
+      const updatedItems = items.filter(item => item.id !== deleteTarget.id)
+      setItems(updatedItems)
+      await offlineDB.removeCachedItem(deleteTarget.id)
+      setDeleteTarget(null)
+      return
+    }
+
+    // 在线模式
     try {
-      await api.deleteItem(id)
+      await api.deleteItem(deleteTarget.id)
+      setDeleteTarget(null)
       loadData()
     } catch (error) {
       console.error('Failed to delete:', error)
+      // API 失败时降级到离线删除
+      await recordOfflineOp('delete', 'items', { id: deleteTarget.id })
+      const updatedItems = items.filter(item => item.id !== deleteTarget.id)
+      setItems(updatedItems)
+      setDeleteTarget(null)
     }
   }
 
@@ -686,6 +786,36 @@ export default function ItemsPage() {
           onScan={handleBarcodeScan}
           onClose={() => setShowScanner(false)}
         />
+      )}
+
+      {/* 删除确认弹窗 */}
+      {deleteTarget && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-background rounded-lg w-full max-w-sm">
+            <div className="p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="h-10 w-10 rounded-full bg-destructive/10 flex items-center justify-center flex-shrink-0">
+                  <Trash2 className="h-5 w-5 text-destructive" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold">删除物品</h2>
+                  <p className="text-sm text-muted-foreground">此操作不可撤销</p>
+                </div>
+              </div>
+              <p className="text-sm text-muted-foreground mb-6">
+                确定要删除物品 <span className="font-medium text-foreground">{deleteTarget.name}</span> 吗？
+              </p>
+              <div className="flex gap-3">
+                <Button variant="outline" className="flex-1" onClick={() => setDeleteTarget(null)}>
+                  取消
+                </Button>
+                <Button variant="destructive" className="flex-1" onClick={confirmDelete}>
+                  删除
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

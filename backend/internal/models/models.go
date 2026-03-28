@@ -292,6 +292,7 @@ type DashboardStats struct {
 	RecentOut       int     `json:"recent_out"`
 	CategoryStats   []CategoryStat `json:"category_stats"`
 	LocationStats   []LocationStat `json:"location_stats"`
+	DailyTrends     []DailyTrend    `json:"daily_trends"` // 最近30天每日入库/出库趋势
 }
 
 type CategoryStat struct {
@@ -306,6 +307,14 @@ type LocationStat struct {
 	LocationName string  `json:"location_name"`
 	ItemCount    int64   `json:"item_count"`
 	TotalValue   float64 `json:"total_value"`
+}
+
+type DailyTrend struct {
+	Date      string `json:"date"`      // YYYY-MM-DD 格式
+	InCount   int    `json:"in_count"`  // 入库数量
+	OutCount  int    `json:"out_count"`  // 出库数量
+	InValue   float64 `json:"in_value"` // 入库金额
+	OutValue  float64 `json:"out_value"` // 出库金额
 }
 
 // ============================================

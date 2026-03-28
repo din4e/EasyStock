@@ -1,7 +1,10 @@
 import type { NextConfig } from "next";
+import createNextIntlPlugin from 'next-intl/plugin';
+
+const withNextIntl = createNextIntlPlugin('./src/i18n.ts');
 
 const nextConfig: NextConfig = {
-  output: "standalone",
+  ...(process.env.NODE_ENV === "production" ? { output: "standalone" } : {}),
   env: {
     NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1",
   },
@@ -9,4 +12,4 @@ const nextConfig: NextConfig = {
   allowedDevOrigins: ["192.168.30.81", "localhost", "127.0.0.1"],
 };
 
-export default nextConfig;
+export default withNextIntl(nextConfig);

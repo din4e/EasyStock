@@ -4,10 +4,10 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { api } from '@/lib/api'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { CheckCircle, XCircle } from 'lucide-react'
+import { CheckCircle, XCircle, Shield, ShieldCheck, ShieldAlert, Users as UsersIcon, UserX, UserCheck, Key, Trash2 } from 'lucide-react'
 
 interface User {
   id: number
@@ -37,6 +37,7 @@ export default function UsersPage() {
   const [passwordUser, setPasswordUser] = useState<User | null>(null)
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
   const [oldPassword, setOldPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
 
   useEffect(() => {
     if (!isAdmin) {
@@ -116,7 +117,7 @@ export default function UsersPage() {
         <h1 className="text-2xl font-bold">用户管理</h1>
         <Card>
           <CardContent className="py-12 text-center">
-            <Users className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+            <UsersIcon className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
             <p className="text-muted-foreground">只有管理员才能访问用户管理</p>
           </CardContent>
         </Card>

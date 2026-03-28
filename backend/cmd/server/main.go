@@ -58,9 +58,23 @@ func main() {
 	// Setup Gin
 	r := gin.Default()
 
-	// CORS - must be global middleware so it runs before route-specific middleware (like auth)
+	// CORS - 根据部署模式限制 origins，生产环境不应 AllowAllOrigins
+	var corsOrigins []string
+	if cfg.Deployment.Mode == "local" {
+		// 本地模式：允许本地开发服务器
+		corsOrigins = []string{
+			"http://localhost:3000",
+			"http://127.0.0.1:3000",
+		}
+	} else {
+		// SaaS 模式：只允许特定域名
+		corsOrigins = []string{
+			"https://easystock.example.com", // 主域名
+		}
+	}
+
 	r.Use(cors.New(cors.Config{
-		AllowAllOrigins:  true,
+		AllowOrigins:     corsOrigins,
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization", "X-Tenant-ID"},
 		ExposeHeaders:    []string{"Content-Length"},

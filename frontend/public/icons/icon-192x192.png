@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="102" fill="#3b82f6"/>
+  <g transform="translate(128, 108) scale(1)">
+    <!-- Box body -->
+    <rect x="0" y="80" width="256" height="176" rx="8" fill="none" stroke="white" stroke-width="16"/>
+    <!-- Box lid -->
+    <rect x="20" y="20" width="216" height="60" rx="8" fill="none" stroke="white" stroke-width="16"/>
+    <!-- Center line -->
+    <line x1="128" y1="80" x2="128" y2="256" stroke="white" stroke-width="12"/>
+    <!-- Handle -->
+    <rect x="96" y="0" width="64" height="28" rx="6" fill="white"/>
+  </g>
+</svg>

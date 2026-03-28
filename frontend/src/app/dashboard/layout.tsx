@@ -6,6 +6,8 @@ import { useAuth } from '@/hooks/useAuth'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Package, LogOut, LayoutDashboard, Tags, MapPin, Menu, X, Users } from 'lucide-react'
+import { OfflineIndicator } from '@/components/offline-indicator'
+import { LanguageSwitcher } from '@/components/language-switcher'
 
 export default function DashboardLayout({
   children,
@@ -52,9 +54,12 @@ export default function DashboardLayout({
           <Package className="h-6 w-6 text-primary" />
           <span className="font-semibold">EasyStock</span>
         </div>
-        <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(!sidebarOpen)}>
-          {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-        </Button>
+        <div className="flex items-center gap-2">
+          <LanguageSwitcher />
+          <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(!sidebarOpen)}>
+            {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </Button>
+        </div>
       </header>
 
       {/* Mobile sidebar */}
@@ -100,9 +105,12 @@ export default function DashboardLayout({
       {/* Desktop sidebar */}
       <aside className="hidden lg:flex lg:flex-col w-64 min-h-screen border-r bg-card fixed h-full">
         <div className="p-4 border-b">
-          <div className="flex items-center gap-2">
-            <Package className="h-6 w-6 text-primary" />
-            <span className="font-semibold text-lg">EasyStock</span>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Package className="h-6 w-6 text-primary" />
+              <span className="font-semibold text-lg">EasyStock</span>
+            </div>
+            <LanguageSwitcher />
           </div>
         </div>
         <nav className="flex-1 p-4 space-y-2">
@@ -135,9 +143,12 @@ export default function DashboardLayout({
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 lg:ml-64 p-4 lg:p-6 pt-16 lg:pt-6">
+      <main className="flex-1 lg:ml-64 p-4 lg:p-6 pt-16 lg:pt-6 pb-12">
         {children}
       </main>
+
+      {/* 离线状态指示器 */}
+      <OfflineIndicator />
     </div>
   )
 }

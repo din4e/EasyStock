@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"bytes"
 	"context"
+	"io"
 	"net/http"
 	"time"
 
@@ -85,8 +87,8 @@ func (h *AIRecognizeHandler) Recognize(c *gin.Context) {
 		return
 	}
 
-	// Save the file for reference
-	fileInfo, err := h.storage.Save(header.Filename, c.Request.Body)
+	// Save the file for reference (使用已读取的 fileData，避免重复读取已消耗的 body)
+	fileInfo, err := h.storage.Save(header.Filename, io.NopCloser(bytes.NewBuffer(fileData)))
 	if err == nil && fileInfo != nil {
 		defer h.storage.Delete(fileInfo.ID)
 	}
@@ -129,6 +131,7 @@ func (h *AIRecognizeHandler) Recognize(c *gin.Context) {
 // POST /api/v1/items/batch
 func (h *AIRecognizeHandler) BatchCreateItems(c *gin.Context) {
 	userID := middleware.GetUserID(c)
+	tenantID := middleware.GetTenantID(c)
 
 	var req struct {
 		Items []struct {
@@ -165,6 +168,7 @@ func (h *AIRecognizeHandler) BatchCreateItems(c *gin.Context) {
 			CategoryID:  itemReq.CategoryID,
 			LocationID:  itemReq.LocationID,
 			UserID:      userID,
+			TenantID:    tenantID,
 		}
 
 		// Parse expired_at if provided

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type TransactionHandler struct {
@@ -30,61 +32,75 @@ func (h *TransactionHandler) Create(c *gin.Context) {
 		return
 	}
 
-	// Get item and verify tenant ownership
-	var item models.Item
-	if err := h.db.Where("id = ? AND tenant_id = ?", req.ItemID, tenantID).First(&item).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "物品不存在"})
-		return
-	}
-
-	beforeQty := item.Quantity
-	var afterQty int
-
-	switch req.Type {
-	case "in":
-		afterQty = beforeQty + req.Quantity
-	case "out", "consume":
-		afterQty = beforeQty - req.Quantity
-		if afterQty < 0 {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "库存不足"})
-			return
+	// 在事务中执行库存操作，防止并发竞态
+	var transaction models.StockTransaction
+	err := h.db.Transaction(func(tx *gorm.DB) error {
+		// 使用 FOR LOCK 行锁防止并发修改同一物品
+		var item models.Item
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where("id = ? AND tenant_id = ?", req.ItemID, tenantID).First(&item).Error; err != nil {
+			return fmt.Errorf("物品不存在")
 		}
-	case "adjust":
-		afterQty = req.Quantity
-	default:
-		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的交易类型"})
+
+		beforeQty := item.Quantity
+		var afterQty int
+
+		switch req.Type {
+		case "in":
+			afterQty = beforeQty + req.Quantity
+		case "out", "consume":
+			afterQty = beforeQty - req.Quantity
+			if afterQty < 0 {
+				return fmt.Errorf("库存不足")
+			}
+		case "adjust":
+			afterQty = req.Quantity
+		default:
+			return fmt.Errorf("无效的交易类型")
+		}
+
+		// 创建交易记录
+		transaction = models.StockTransaction{
+			Type:      req.Type,
+			Quantity:  req.Quantity,
+			BeforeQty: beforeQty,
+			AfterQty:  afterQty,
+			Price:     req.Price,
+			Note:      req.Note,
+			ItemID:    req.ItemID,
+			UserID:    userID,
+			TenantID:  tenantID,
+		}
+
+		if err := tx.Create(&transaction).Error; err != nil {
+			return fmt.Errorf("创建交易记录失败")
+		}
+
+		// 更新物品数量
+		updates := map[string]interface{}{"quantity": afterQty}
+		if req.Type == "in" && req.Price > 0 {
+			updates["price"] = req.Price
+		}
+		if err := tx.Model(&item).Updates(updates).Error; err != nil {
+			return fmt.Errorf("更新物品库存失败")
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		switch err.Error() {
+		case "物品不存在":
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		case "库存不足", "无效的交易类型":
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		}
 		return
 	}
 
-	// Create transaction
-	transaction := models.StockTransaction{
-		Type:      req.Type,
-		Quantity:  req.Quantity,
-		BeforeQty: beforeQty,
-		AfterQty:  afterQty,
-		Price:     req.Price,
-		Note:      req.Note,
-		ItemID:    req.ItemID,
-		UserID:    userID,
-		TenantID:  tenantID,
-	}
-
-	if err := h.db.Create(&transaction).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "创建交易记录失败"})
-		return
-	}
-
-	// Update item quantity
-	item.Quantity = afterQty
-	if req.Type == "in" && req.Price > 0 {
-		item.Price = req.Price
-	}
-	if err := h.db.Save(&item).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "更新物品库存失败"})
-		return
-	}
-
-	// Load relations
+	// 加载关联数据
 	h.db.Preload("Item").Preload("User").First(&transaction, transaction.ID)
 
 	c.JSON(http.StatusCreated, transaction)
@@ -196,6 +212,68 @@ func (h *TransactionHandler) GetStats(c *gin.Context) {
 		}
 	}
 	stats.LocationStats = locationStats
+
+	// Daily trends (last 30 days) - optimized single query with GROUP BY
+	dailyTrends := make([]models.DailyTrend, 0)
+	thirtyDaysAgo := time.Now().AddDate(0, 0, -29)
+	startOfPeriod := time.Date(thirtyDaysAgo.Year(), thirtyDaysAgo.Month(), thirtyDaysAgo.Day(), 0, 0, 0, 0, thirtyDaysAgo.Location())
+
+	// Create a map to store all daily data
+	dailyMap := make(map[string]*models.DailyTrend)
+
+	// Initialize all 30 days with zero values
+	for i := 29; i >= 0; i-- {
+		date := time.Now().AddDate(0, 0, -i)
+		dateStr := date.Format("2006-01-02")
+		dailyMap[dateStr] = &models.DailyTrend{
+			Date:     dateStr,
+			InCount:  0,
+			OutCount: 0,
+			InValue:  0,
+			OutValue: 0,
+		}
+	}
+
+	// Query all in transactions in single query
+	type DailyAgg struct {
+		Date     string
+		TotalQty int
+		TotalVal float64
+	}
+	var inAggs []DailyAgg
+	h.db.Model(&models.StockTransaction{}).
+		Select("DATE(created_at) as date, COALESCE(SUM(quantity), 0) as total_qty, COALESCE(SUM(price * quantity), 0) as total_val").
+		Where("tenant_id = ? AND type = 'in' AND created_at >= ?", tenantID, startOfPeriod).
+		Group("DATE(created_at)").
+		Scan(&inAggs)
+
+	for _, agg := range inAggs {
+		if day, ok := dailyMap[agg.Date]; ok {
+			day.InCount = agg.TotalQty
+			day.InValue = agg.TotalVal
+		}
+	}
+
+	// Query all out transactions in single query
+	var outAggs []DailyAgg
+	h.db.Model(&models.StockTransaction{}).
+		Select("DATE(created_at) as date, COALESCE(SUM(quantity), 0) as total_qty, COALESCE(SUM(price * quantity), 0) as total_val").
+		Where("tenant_id = ? AND type = 'out' AND created_at >= ?", tenantID, startOfPeriod).
+		Group("DATE(created_at)").
+		Scan(&outAggs)
+
+	for _, agg := range outAggs {
+		if day, ok := dailyMap[agg.Date]; ok {
+			day.OutCount = agg.TotalQty
+			day.OutValue = agg.TotalVal
+		}
+	}
+
+	// Convert map to sorted slice
+	for _, day := range dailyMap {
+		dailyTrends = append(dailyTrends, *day)
+	}
+	stats.DailyTrends = dailyTrends
 
 	c.JSON(http.StatusOK, stats)
 }

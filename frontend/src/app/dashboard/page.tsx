@@ -5,6 +5,30 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Package, TrendingUp, AlertTriangle, DollarSign, ArrowDown, ArrowUp, ScanLine, Plus, Tags, MapPin } from 'lucide-react'
 import { api } from '@/lib/api'
 import Link from 'next/link'
+import { TrendChart } from '@/components/dashboard/trend-chart'
+import {
+  PieChart,
+  Pie,
+  Cell,
+  ResponsiveContainer,
+  Tooltip,
+  Legend,
+} from 'recharts'
+
+interface CategoryStat {
+  category_id: number
+  category_name: string
+  item_count: number
+  total_value: number
+}
+
+interface DailyTrend {
+  date: string
+  in_count: number
+  out_count: number
+  in_value: number
+  out_value: number
+}
 
 interface Stats {
   total_items: number
@@ -14,7 +38,11 @@ interface Stats {
   low_stock: number
   recent_in: number
   recent_out: number
+  category_stats: CategoryStat[]
+  daily_trends: DailyTrend[]
 }
+
+const CHART_COLORS = ['#22c55e', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16']
 
 export default function DashboardPage() {
   const [stats, setStats] = useState<Stats | null>(null)
@@ -117,7 +145,58 @@ export default function DashboardPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Category distribution */}
+        {stats?.category_stats && stats.category_stats.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">分类分布</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-48">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={stats.category_stats}
+                      dataKey="item_count"
+                      nameKey="category_name"
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={70}
+                      label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
+                      labelLine={false}
+                    >
+                      {stats.category_stats.map((_, index) => (
+                        <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          const data = payload[0].payload as CategoryStat
+                          return (
+                            <div className="bg-background border rounded-lg p-3 shadow-lg">
+                              <p className="font-medium">{data.category_name}</p>
+                              <p className="text-sm text-muted-foreground">物品数: {data.item_count}</p>
+                              <p className="text-sm text-muted-foreground">总值: ¥{data.total_value.toFixed(2)}</p>
+                            </div>
+                          )
+                        }
+                        return null
+                      }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
+
+      {/* Trend Chart */}
+      {stats?.daily_trends && stats.daily_trends.length > 0 && (
+        <TrendChart data={stats.daily_trends} title="库存变动趋势" />
+      )}
 
       {/* Quick Actions */}
       <Card>

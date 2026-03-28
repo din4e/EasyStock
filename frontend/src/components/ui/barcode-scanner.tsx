@@ -125,7 +125,7 @@ export function BarcodeScanner({ onScan, onClose, onError }: BarcodeScannerProps
       // On mobile, explicitly request the back camera via getUserMedia first
       // to ensure proper permission and facingMode
       const videoConstraints: MediaStreamConstraints = selectedDeviceId
-        ? { deviceId: { exact: selectedDeviceId } }
+        ? { video: { deviceId: { exact: selectedDeviceId } } }
         : { video: { facingMode: 'environment' }, audio: false }
 
       // Get the stream first to ensure camera permission

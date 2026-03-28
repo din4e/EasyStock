@@ -94,6 +94,12 @@ func (s *LocalStorage) Save(name string, data io.Reader) (*FileInfo, error) {
 
 // Get retrieves a file by its ID (with extension)
 func (s *LocalStorage) Get(id string) ([]byte, error) {
+	// Sanitize id - remove any path traversal attempts
+	id = filepath.Clean(id)
+	if id == "." || id == ".." || strings.HasPrefix(id, "/") || strings.Contains(id, "..") {
+		return nil, fmt.Errorf("invalid file id: %s", id)
+	}
+
 	// Find the file (id might include extension)
 	path := filepath.Join(s.basePath, id)
 
@@ -108,6 +114,13 @@ func (s *LocalStorage) Get(id string) ([]byte, error) {
 		}
 	}
 
+	// Ensure path is within basePath (prevent path traversal)
+	absBase, _ := filepath.Abs(s.basePath)
+	absPath, _ := filepath.Abs(path)
+	if !strings.HasPrefix(absPath, absBase) {
+		return nil, fmt.Errorf("access denied: path outside storage directory")
+	}
+
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read file: %w", err)
@@ -118,6 +131,12 @@ func (s *LocalStorage) Get(id string) ([]byte, error) {
 
 // Delete removes a file by its ID
 func (s *LocalStorage) Delete(id string) error {
+	// Sanitize id - remove any path traversal attempts
+	id = filepath.Clean(id)
+	if id == "." || id == ".." || strings.HasPrefix(id, "/") || strings.Contains(id, "..") {
+		return fmt.Errorf("invalid file id: %s", id)
+	}
+
 	path := filepath.Join(s.basePath, id)
 
 	// Check if file exists
@@ -129,6 +148,13 @@ func (s *LocalStorage) Delete(id string) error {
 		} else {
 			return fmt.Errorf("file not found: %s", id)
 		}
+	}
+
+	// Ensure path is within basePath (prevent path traversal)
+	absBase, _ := filepath.Abs(s.basePath)
+	absPath, _ := filepath.Abs(path)
+	if !strings.HasPrefix(absPath, absBase) {
+		return fmt.Errorf("access denied: path outside storage directory")
 	}
 
 	if err := os.Remove(path); err != nil {

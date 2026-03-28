@@ -2,32 +2,28 @@ FROM golang:1.25-alpine AS builder
 
 WORKDIR /app
 
-# Install dependencies
+# 构建依赖
 RUN apk add --no-cache gcc musl-dev
 
-# Copy go mod files
+# 利用 Docker 层缓存加速构建
 COPY go.mod go.sum ./
 RUN go mod download
 
-# Copy source code
+# 复制源码并编译
 COPY . .
+RUN CGO_ENABLED=1 GOOS=linux go build -ldflags="-s -w" -o /server ./cmd/server
 
-# Build
-RUN CGO_ENABLED=1 GOOS=linux go build -o /server ./cmd/server
-
-# Final stage
+# 运行阶段：最小化镜像
 FROM alpine:latest
 
 WORKDIR /app
 
-# Install certificates for HTTPS
 RUN apk --no-cache add ca-certificates tzdata
 
-# Copy binary from builder
 COPY --from=builder /server .
 
-# Create data directory
-RUN mkdir -p /app/data
+# 创建数据和上传目录
+RUN mkdir -p /app/data /app/data/uploads
 
 EXPOSE 8080
 

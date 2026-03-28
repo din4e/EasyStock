@@ -1,38 +1,87 @@
 version: '3.8'
 
 services:
+  # Traefik 反向代理
+  traefik:
+    image: traefik:v3.0
+    container_name: easystock-traefik
+    command:
+      - "--api.dashboard=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entryPoints.web.address=:80"
+      - "--entryPoints.websecure.address=:443"
+      # 启用自动 HTTPS（可选，需配置 ACME）
+      # - "--certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL}"
+      # - "--certificatesresolvers.letsencrypt.acme.storage=/etc/traefik/acme.json"
+      # - "--certificatesresolvers.letsencrypt.acme.tlschallenge=true"
+    ports:
+      - "80:80"
+      - "443:443"
+      # Traefik Dashboard（仅开发环境开放，生产环境应关闭或加认证）
+      - "8081:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # - ./traefik/acme.json:/etc/traefik/acme.json
+    networks:
+      - easystock-network
+    restart: unless-stopped
+
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     container_name: easystock-backend
-    ports:
-      - "8080:8080"
     environment:
       - SERVER_PORT=8080
-      - DB_TYPE=sqlite
-      - JWT_SECRET=easystock-secret-key-change-in-production
-      - JWT_EXPIRE_HOUR=24
+      - DB_TYPE=${DB_TYPE:-sqlite}
+      - DB_HOST=${DB_HOST:-}
+      - DB_PORT=${DB_PORT:-}
+      - DB_USER=${DB_USER:-}
+      - DB_PASSWORD=${DB_PASSWORD:-}
+      - DB_NAME=${DB_NAME:-easystock}
+      - JWT_SECRET=${JWT_SECRET:-easystock-secret-key-change-in-production}
+      - JWT_EXPIRE_HOUR=${JWT_EXPIRE_HOUR:-24}
+      - DEPLOYMENT_MODE=${DEPLOYMENT_MODE:-local}
+      - STORAGE_TYPE=local
+      - STORAGE_LOCAL_PATH=/app/data/uploads
+      - AI_PROVIDER=${AI_PROVIDER:-}
+      - AI_API_KEY=${AI_API_KEY:-}
+      - AI_MODEL=${AI_MODEL:-}
     volumes:
       - easystock-data:/app/data
-    restart: unless-stopped
     networks:
       - easystock-network
+    restart: unless-stopped
+    depends_on:
+      - traefik
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.easystock-api.rule=PathPrefix(`/api/`) || PathPrefix(`/health`) || PathPrefix(`/uploads/`)"
+      - "traefik.http.routers.easystock-api.entryPoints=web"
+      - "traefik.http.routers.easystock-api.service=easystock-api"
+      - "traefik.http.services.easystock-api.loadbalancer.server.port=8080"
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: easystock-frontend
-    ports:
-      - "3000:3000"
     environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:8080/api/v1
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-/api/v1}
     depends_on:
       - backend
-    restart: unless-stopped
+      - traefik
     networks:
       - easystock-network
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.easystock-web.rule=PathPrefix(`/`)"
+      - "traefik.http.routers.easystock-web.entryPoints=web"
+      - "traefik.http.routers.easystock-web.priority=1"
+      - "traefik.http.routers.easystock-web.service=easystock-web"
+      - "traefik.http.services.easystock-web.loadbalancer.server.port=3000"
 
 volumes:
   easystock-data:

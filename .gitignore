@@ -27,3 +27,18 @@ build/
 # OS
 .DS_Store
 Thumbs.db
+
+# Traefik
+traefik/acme.json
+
+# Uploads
+uploads/
+
+# Golutra
+.golutra/
+
+# Air temp
+backend/tmp/
+
+# Go env
+backend/go.env

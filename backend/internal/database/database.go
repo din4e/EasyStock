@@ -3,13 +3,14 @@ package database
 import (
 	"fmt"
 	"log"
+	"os"
 
 	"easystock/internal/config"
 	"easystock/internal/models"
 
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
-	"gorm.io/driver/sqlite"
+	"github.com/glebarez/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
@@ -34,7 +35,11 @@ func Connect(cfg *config.Config) (*gorm.DB, error) {
 			Logger: logger.Default.LogMode(logger.Info),
 		})
 	case "sqlite":
-		db, err = gorm.Open(sqlite.Open("easystock.db"), &gorm.Config{
+		dbPath := os.Getenv("DB_PATH")
+		if dbPath == "" {
+			dbPath = "easystock.db"
+		}
+		db, err = gorm.Open(sqlite.Open(dbPath), &gorm.Config{
 			Logger: logger.Default.LogMode(logger.Info),
 		})
 	default:
