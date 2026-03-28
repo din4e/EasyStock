@@ -2,28 +2,29 @@
 
 import { useTransition } from 'react'
 import { useLocale } from 'next-intl'
-import { useRouter, usePathname } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { Globe } from 'lucide-react'
+
+const languages = [
+  { code: 'zh-CN', label: '中文' },
+  { code: 'en', label: 'English' },
+]
 
 export function LanguageSwitcher() {
   const [isPending, startTransition] = useTransition()
   const locale = useLocale()
   const router = useRouter()
-  const pathname = usePathname()
 
   const switchLocale = (newLocale: string) => {
+    if (newLocale === locale) return
+
     startTransition(() => {
-      // Replace the current locale in the pathname
-      const segments = pathname.split('/')
-      segments[1] = newLocale
-      router.push(segments.join('/'))
+      // 设置 cookie，有效期一年
+      document.cookie = `locale=${newLocale};path=/;max-age=${60 * 60 * 24 * 365}`
+      // 刷新页面以应用新语言
+      router.refresh()
     })
   }
-
-  const languages = [
-    { code: 'zh-CN', label: '中文' },
-    { code: 'en', label: 'English' },
-  ]
 
   return (
     <div className="flex items-center gap-1">

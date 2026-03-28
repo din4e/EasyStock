@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { useAuth } from '@/hooks/useAuth'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
@@ -14,6 +15,8 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode
 }) {
+  const t = useTranslations('nav')
+  const tAuth = useTranslations('auth')
   const { user, loading, mounted, logout, isAdmin } = useAuth()
   const router = useRouter()
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -39,11 +42,11 @@ export default function DashboardLayout({
   }
 
   const navItems = [
-    { href: '/dashboard', icon: LayoutDashboard, label: '仪表盘' },
-    { href: '/dashboard/items', icon: Package, label: '物品管理' },
-    { href: '/dashboard/categories', icon: Tags, label: '分类管理' },
-    { href: '/dashboard/locations', icon: MapPin, label: '位置管理' },
-    ...(isAdmin ? [{ href: '/dashboard/users', icon: Users, label: '用户管理' }] : []),
+    { href: '/dashboard', icon: LayoutDashboard, label: t('dashboard') },
+    { href: '/dashboard/items', icon: Package, label: t('items') },
+    { href: '/dashboard/categories', icon: Tags, label: t('categories') },
+    { href: '/dashboard/locations', icon: MapPin, label: t('locations') },
+    ...(isAdmin ? [{ href: '/dashboard/users', icon: Users, label: t('users') }] : []),
   ]
 
   return (
@@ -90,12 +93,12 @@ export default function DashboardLayout({
                 </div>
                 <div>
                   <p className="text-sm font-medium">{user.nickname || user.username}</p>
-                  <p className="text-xs text-muted-foreground">{user.role}</p>
+                  <p className="text-xs text-muted-foreground">{tAuth(`roles.${user.role}`)}</p>
                 </div>
               </div>
               <Button variant="outline" className="w-full" onClick={handleLogout}>
                 <LogOut className="h-4 w-4 mr-2" />
-                退出登录
+                {tAuth('logout')}
               </Button>
             </div>
           </div>
@@ -132,12 +135,12 @@ export default function DashboardLayout({
             </div>
             <div>
               <p className="text-sm font-medium">{user.nickname || user.username}</p>
-              <p className="text-xs text-muted-foreground">{user.role}</p>
+              <p className="text-xs text-muted-foreground">{tAuth(`roles.${user.role}`)}</p>
             </div>
           </div>
           <Button variant="outline" className="w-full" onClick={handleLogout}>
             <LogOut className="h-4 w-4 mr-2" />
-            退出登录
+            {tAuth('logout')}
           </Button>
         </div>
       </aside>

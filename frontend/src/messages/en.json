@@ -12,7 +12,12 @@
     "success": "Success",
     "error": "Error",
     "warning": "Warning",
-    "noData": "No data"
+    "noData": "No data",
+    "items": "items",
+    "totalValue": "Total",
+    "close": "Close",
+    "done": "Done",
+    "scan": "Scan"
   },
   "auth": {
     "login": "Login",
@@ -22,7 +27,13 @@
     "password": "Password",
     "email": "Email",
     "nickname": "Nickname",
-    "rememberMe": "Remember me"
+    "rememberMe": "Remember me",
+    "roles": {
+      "owner": "Owner",
+      "admin": "Admin",
+      "member": "Member",
+      "readonly": "Read Only"
+    }
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -51,7 +62,17 @@
     "categoryManage": "Categories",
     "locationManage": "Locations",
     "expiringAlert": "You have {count} items expiring soon",
-    "viewDetails": "View Details"
+    "viewDetails": "View Details",
+    "totalQty": "Total Stock",
+    "inQty": "Inbound Qty",
+    "outQty": "Outbound Qty",
+    "inValue": "Inbound Value",
+    "outValue": "Outbound Value",
+    "qty": "Quantity",
+    "value": "Value",
+    "line": "Line",
+    "area": "Area",
+    "mixed": "Mixed"
   },
   "items": {
     "title": "Items",
@@ -111,5 +132,53 @@
     "outCount": "Out Count",
     "inValue": "In Value",
     "outValue": "Out Value"
+  },
+  "scanner": {
+    "title": "Scan Barcode",
+    "startingCamera": "Starting camera...",
+    "needPermission": "Camera Permission Required",
+    "permissionHelp": "Please allow camera access in browser settings and refresh the page",
+    "cannotStart": "Cannot Start Scanner",
+    "noCamera": "No camera device found. Please ensure your device is connected and browser has permission.",
+    "initFailed": "Failed to initialize scanner",
+    "notSupported": "Your browser does not support camera access. Please use HTTPS or localhost.",
+    "permissionDenied": "Please allow camera access to use the scanning feature",
+    "startFailed": "Failed to start camera",
+    "switchCamera": "Switch Camera",
+    "instruction": "Align barcode within the frame to scan automatically",
+    "cameraTip": "Tip: Barcode scanning requires a camera. Desktop users please use a mobile device or external camera."
+  },
+  "offline": {
+    "syncing": "Syncing {count} offline operations...",
+    "pending": "{count} operations pending sync",
+    "offlineMode": "Offline Mode - Operations will sync automatically when connection is restored"
+  },
+  "upload": {
+    "dragOrClick": "Drag and drop files here or click to upload",
+    "supportTypes": "Supports images (JPG, PNG, GIF, WebP) and PDF files, max {size}MB",
+    "fileTooLarge": "File size exceeds limit (max {size}MB)",
+    "invalidType": "Unsupported file type",
+    "recognizing": "AI is recognizing...",
+    "pleaseWait": "Please wait"
+  },
+  "ai": {
+    "result": "AI Recognition Result",
+    "recognized": "Recognized {count} items",
+    "lowConfidence": "{count} items have low confidence, please review",
+    "confidence": "Confidence",
+    "high": "High",
+    "medium": "Medium",
+    "low": "Low",
+    "name": "Name",
+    "barcode": "Barcode",
+    "quantity": "Quantity",
+    "unit": "Unit",
+    "price": "Price",
+    "expiredAt": "Expiry Date",
+    "category": "Category",
+    "brand": "Brand",
+    "noItems": "No items recognized",
+    "confirmAdd": "Will add {count} items to inventory after confirmation",
+    "confirm": "Confirm Add"
   }
 }

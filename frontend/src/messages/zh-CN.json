@@ -12,7 +12,12 @@
     "success": "成功",
     "error": "错误",
     "warning": "警告",
-    "noData": "暂无数据"
+    "noData": "暂无数据",
+    "items": "物品数",
+    "totalValue": "总值",
+    "close": "关闭",
+    "done": "完成",
+    "scan": "扫描"
   },
   "auth": {
     "login": "登录",
@@ -22,7 +27,13 @@
     "password": "密码",
     "email": "邮箱",
     "nickname": "昵称",
-    "rememberMe": "记住我"
+    "rememberMe": "记住我",
+    "roles": {
+      "owner": "所有者",
+      "admin": "管理员",
+      "member": "成员",
+      "readonly": "只读"
+    }
   },
   "nav": {
     "dashboard": "仪表盘",
@@ -51,7 +62,17 @@
     "categoryManage": "分类管理",
     "locationManage": "位置管理",
     "expiringAlert": "您有 {count} 件物品即将过期",
-    "viewDetails": "查看详情"
+    "viewDetails": "查看详情",
+    "totalQty": "库存总量",
+    "inQty": "入库数量",
+    "outQty": "出库数量",
+    "inValue": "入库金额",
+    "outValue": "出库金额",
+    "qty": "数量",
+    "value": "金额",
+    "line": "折线",
+    "area": "面积",
+    "mixed": "混合"
   },
   "items": {
     "title": "物品管理",
@@ -111,5 +132,53 @@
     "outCount": "出库数量",
     "inValue": "入库金额",
     "outValue": "出库金额"
+  },
+  "scanner": {
+    "title": "扫描条形码",
+    "startingCamera": "正在启动摄像头...",
+    "needPermission": "需要摄像头权限",
+    "permissionHelp": "请在浏览器设置中允许访问摄像头，然后刷新页面重试",
+    "cannotStart": "无法启动扫描",
+    "noCamera": "未找到摄像头设备。请确保设备已连接且浏览器有权限访问。",
+    "initFailed": "初始化扫描器失败",
+    "notSupported": "当前浏览器不支持摄像头访问。请确保使用 HTTPS 访问或使用 localhost。",
+    "permissionDenied": "请允许访问摄像头以使用扫描功能",
+    "startFailed": "启动摄像头失败",
+    "switchCamera": "切换摄像头",
+    "instruction": "将条形码对准框内自动扫描",
+    "cameraTip": "提示：条码扫描需要摄像头。桌面电脑请使用手机或外接摄像头访问此页面。"
+  },
+  "offline": {
+    "syncing": "正在同步 {count} 条离线操作...",
+    "pending": "{count} 条操作待同步",
+    "offlineMode": "离线模式 - 操作将在恢复连接后自动同步"
+  },
+  "upload": {
+    "dragOrClick": "拖拽文件到此处或点击上传",
+    "supportTypes": "支持图片 (JPG, PNG, GIF, WebP) 和 PDF 文件，最大 {size}MB",
+    "fileTooLarge": "文件大小超出限制 (最大 {size}MB)",
+    "invalidType": "不支持的文件类型",
+    "recognizing": "AI 正在识别中...",
+    "pleaseWait": "请稍候"
+  },
+  "ai": {
+    "result": "AI 识别结果",
+    "recognized": "识别到 {count} 个物品",
+    "lowConfidence": "有 {count} 个物品置信度较低，建议检查",
+    "confidence": "置信度",
+    "high": "高",
+    "medium": "中",
+    "low": "低",
+    "name": "名称",
+    "barcode": "条码",
+    "quantity": "数量",
+    "unit": "单位",
+    "price": "价格",
+    "expiredAt": "过期日期",
+    "category": "分类",
+    "brand": "品牌",
+    "noItems": "没有识别到任何物品",
+    "confirmAdd": "确认后将添加 {count} 个物品到库存",
+    "confirm": "确认添加"
   }
 }

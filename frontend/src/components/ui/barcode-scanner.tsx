@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { X, Camera, SwitchCamera, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { useTranslations } from 'next-intl'
 
 interface BarcodeScannerProps {
   onScan: (barcode: string) => void
@@ -23,6 +24,8 @@ export function BarcodeScanner({ onScan, onClose, onError }: BarcodeScannerProps
   const lastScannedTimeRef = useRef<number>(0)
   const readerRef = useRef<any>(null)
   const mountedRef = useRef(true)
+  const t = useTranslations('scanner')
+  const tCommon = useTranslations('common')
 
   // Stop scanning
   const stopScanning = useCallback(() => {
@@ -81,13 +84,13 @@ export function BarcodeScanner({ onScan, onClose, onError }: BarcodeScannerProps
           setIsLoading(false)
         } else {
           setIsLoading(false)
-          setErrorMessage('未找到摄像头设备。请确保设备已连接且浏览器有权限访问。')
+          setErrorMessage(t('noCamera'))
         }
       } catch (err: any) {
         if (!mountedRef.current) return
         console.error('Failed to initialize scanner:', err)
         setIsLoading(false)
-        const msg = '初始化扫描器失败: ' + (err.message || String(err))
+        const msg = t('initFailed') + ': ' + (err.message || String(err))
         setErrorMessage(msg)
         onError?.(msg)
       }
@@ -103,7 +106,7 @@ export function BarcodeScanner({ onScan, onClose, onError }: BarcodeScannerProps
       setIsInitialized(false)
       stopScanning()
     }
-  }, [onError, stopScanning])
+  }, [onError, stopScanning, t])
 
   const startScanning = useCallback(async () => {
     if (!readerRef.current || !videoRef.current) return
@@ -112,7 +115,7 @@ export function BarcodeScanner({ onScan, onClose, onError }: BarcodeScannerProps
     if (!navigator.mediaDevices?.getUserMedia) {
       setIsScanning(false)
       setIsLoading(false)
-      const msg = '当前浏览器不支持摄像头访问。请确保使用 HTTPS 访问或使用 localhost。'
+      const msg = t('notSupported')
       setErrorMessage(msg)
       onError?.(msg)
       return
@@ -140,7 +143,7 @@ export function BarcodeScanner({ onScan, onClose, onError }: BarcodeScannerProps
           setHasPermission(false)
           setIsScanning(false)
           setIsLoading(false)
-          onError?.('请允许访问摄像头以使用扫描功能')
+          onError?.(t('permissionDenied'))
           return
         }
         // Fall through - maybe decodeFromVideoDevice can handle it
@@ -180,12 +183,12 @@ export function BarcodeScanner({ onScan, onClose, onError }: BarcodeScannerProps
       setIsLoading(false)
       if (err.name === 'NotAllowedError') {
         setHasPermission(false)
-        onError?.('请允许访问摄像头以使用扫描功能')
+        onError?.(t('permissionDenied'))
       } else {
-        onError?.('启动摄像头失败: ' + err.message)
+        onError?.(t('startFailed') + ': ' + err.message)
       }
     }
-  }, [selectedDeviceId, onScan, onError])
+  }, [selectedDeviceId, onScan, onError, t])
 
   // Start scanning once scanner is initialized
   useEffect(() => {
@@ -207,7 +210,7 @@ export function BarcodeScanner({ onScan, onClose, onError }: BarcodeScannerProps
     <div className="fixed inset-0 bg-black z-50 flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between p-4 bg-black/50 text-white">
-        <h2 className="text-lg font-medium">扫描条形码</h2>
+        <h2 className="text-lg font-medium">{t('title')}</h2>
         <Button variant="ghost" size="icon" onClick={onClose} className="text-white hover:bg-white/20">
           <X className="h-6 w-6" />
         </Button>
@@ -244,7 +247,7 @@ export function BarcodeScanner({ onScan, onClose, onError }: BarcodeScannerProps
           <div className="absolute inset-0 flex items-center justify-center bg-black/80">
             <div className="text-center text-white">
               <Loader2 className="h-10 w-10 animate-spin mx-auto mb-4" />
-              <p>正在启动摄像头...</p>
+              <p>{t('startingCamera')}</p>
             </div>
           </div>
         )}
@@ -254,12 +257,12 @@ export function BarcodeScanner({ onScan, onClose, onError }: BarcodeScannerProps
           <div className="absolute inset-0 flex items-center justify-center bg-black/80 p-4">
             <div className="text-center text-white max-w-sm">
               <Camera className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p className="text-lg mb-2">需要摄像头权限</p>
+              <p className="text-lg mb-2">{t('needPermission')}</p>
               <p className="text-sm text-gray-400 mb-4">
-                请在浏览器设置中允许访问摄像头，然后刷新页面重试
+                {t('permissionHelp')}
               </p>
               <Button variant="outline" onClick={onClose}>
-                关闭
+                {tCommon('close')}
               </Button>
             </div>
           </div>
@@ -270,15 +273,15 @@ export function BarcodeScanner({ onScan, onClose, onError }: BarcodeScannerProps
           <div className="absolute inset-0 flex items-center justify-center bg-black/80 p-4">
             <div className="text-center text-white max-w-sm">
               <Camera className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p className="text-lg mb-2">无法启动扫描</p>
+              <p className="text-lg mb-2">{t('cannotStart')}</p>
               <p className="text-sm text-gray-400 mb-4">{errorMessage}</p>
-              {errorMessage.includes('摄像头') && (
+              {errorMessage.includes(t('noCamera')) && (
                 <p className="text-xs text-gray-500 mb-4">
-                  💡 提示：条码扫描需要摄像头。桌面电脑请使用手机或外接摄像头访问此页面。
+                  {t('cameraTip')}
                 </p>
               )}
               <Button variant="outline" onClick={onClose}>
-                关闭
+                {tCommon('close')}
               </Button>
             </div>
           </div>
@@ -288,7 +291,7 @@ export function BarcodeScanner({ onScan, onClose, onError }: BarcodeScannerProps
         {isScanning && (
           <div className="absolute bottom-20 inset-x-0 text-center text-white text-sm px-4">
             <p className="bg-black/50 inline-block px-4 py-2 rounded-lg">
-              将条形码对准框内自动扫描
+              {t('instruction')}
             </p>
           </div>
         )}
@@ -302,7 +305,7 @@ export function BarcodeScanner({ onScan, onClose, onError }: BarcodeScannerProps
             size="icon"
             onClick={switchCamera}
             className="rounded-full bg-white/10 border-white/20 text-white hover:bg-white/20"
-            title="切换摄像头"
+            title={t('switchCamera')}
           >
             <SwitchCamera className="h-6 w-6" />
           </Button>
@@ -313,7 +316,7 @@ export function BarcodeScanner({ onScan, onClose, onError }: BarcodeScannerProps
           onClick={onClose}
           className="px-8 bg-white/10 border-white/20 text-white hover:bg-white/20"
         >
-          取消
+          {tCommon('cancel')}
         </Button>
       </div>
     </div>

@@ -2,6 +2,7 @@
 
 import { useOfflineSync } from '@/hooks/useOfflineSync'
 import { Wifi, WifiOff, RefreshCw } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 
 /**
  * 离线状态指示器
@@ -9,6 +10,7 @@ import { Wifi, WifiOff, RefreshCw } from 'lucide-react'
  */
 export function OfflineIndicator() {
   const { isOnline, isSyncing, pendingCount } = useOfflineSync()
+  const t = useTranslations('offline')
 
   // 在线且无待同步操作时不显示
   if (isOnline && pendingCount === 0) return null
@@ -28,16 +30,16 @@ export function OfflineIndicator() {
             {isSyncing ? (
               <>
                 <RefreshCw className="h-4 w-4 animate-spin" />
-                <span>正在同步 {pendingCount} 条离线操作...</span>
+                <span>{t('syncing', { count: pendingCount })}</span>
               </>
             ) : (
-              <span>{pendingCount} 条操作待同步</span>
+              <span>{t('pending', { count: pendingCount })}</span>
             )}
           </>
         ) : (
           <>
             <WifiOff className="h-4 w-4" />
-            <span>离线模式 - 操作将在恢复连接后自动同步</span>
+            <span>{t('offlineMode')}</span>
           </>
         )}
       </div>

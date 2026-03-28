@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from 'react'
+import { useTranslations } from 'next-intl'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Package, TrendingUp, AlertTriangle, DollarSign, ArrowDown, ArrowUp, ScanLine, Plus, Tags, MapPin } from 'lucide-react'
 import { api } from '@/lib/api'
@@ -12,7 +13,6 @@ import {
   Cell,
   ResponsiveContainer,
   Tooltip,
-  Legend,
 } from 'recharts'
 
 interface CategoryStat {
@@ -45,6 +45,9 @@ interface Stats {
 const CHART_COLORS = ['#22c55e', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16']
 
 export default function DashboardPage() {
+  const t = useTranslations('dashboard')
+  const tStats = useTranslations('stats')
+  const tCommon = useTranslations('common')
   const [stats, setStats] = useState<Stats | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -65,28 +68,28 @@ export default function DashboardPage() {
 
   const statCards = [
     {
-      title: '总物品数',
+      title: t('totalItems'),
       value: stats?.total_items || 0,
       icon: Package,
       color: 'text-blue-500',
       bg: 'bg-blue-500/10',
     },
     {
-      title: '库存总值',
+      title: t('totalValue'),
       value: `¥${(stats?.total_value || 0).toFixed(2)}`,
       icon: DollarSign,
       color: 'text-green-500',
       bg: 'bg-green-500/10',
     },
     {
-      title: '即将过期',
+      title: t('expiringSoon'),
       value: stats?.expiring_soon || 0,
       icon: AlertTriangle,
       color: 'text-orange-500',
       bg: 'bg-orange-500/10',
     },
     {
-      title: '库存不足',
+      title: t('lowStock'),
       value: stats?.low_stock || 0,
       icon: TrendingUp,
       color: 'text-red-500',
@@ -97,8 +100,8 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">仪表盘</h1>
-        <p className="text-muted-foreground">欢迎回来！以下是您的库存概览。</p>
+        <h1 className="text-2xl font-bold">{t('title')}</h1>
+        <p className="text-muted-foreground">{t('welcome')}</p>
       </div>
 
       {/* Stats grid */}
@@ -124,23 +127,23 @@ export default function DashboardPage() {
       <div className="grid lg:grid-cols-2 gap-6">
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">本周入库/出库</CardTitle>
+            <CardTitle className="text-lg">{t('thisWeek')}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               <div className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-950/30 rounded-lg">
                 <div className="flex items-center gap-3">
                   <ArrowDown className="h-5 w-5 text-green-500" />
-                  <span>入库</span>
+                  <span>{tStats('inCount')}</span>
                 </div>
-                <span className="font-semibold text-green-600">{stats?.recent_in || 0} 件</span>
+                <span className="font-semibold text-green-600">{stats?.recent_in || 0} {t('item')}</span>
               </div>
               <div className="flex items-center justify-between p-3 bg-red-50 dark:bg-red-950/30 rounded-lg">
                 <div className="flex items-center gap-3">
                   <ArrowUp className="h-5 w-5 text-red-500" />
-                  <span>出库</span>
+                  <span>{tStats('outCount')}</span>
                 </div>
-                <span className="font-semibold text-red-600">{stats?.recent_out || 0} 件</span>
+                <span className="font-semibold text-red-600">{stats?.recent_out || 0} {t('item')}</span>
               </div>
             </div>
           </CardContent>
@@ -150,7 +153,7 @@ export default function DashboardPage() {
         {stats?.category_stats && stats.category_stats.length > 0 && (
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">分类分布</CardTitle>
+              <CardTitle className="text-lg">{t('categoryDist')}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="h-48">
@@ -177,8 +180,8 @@ export default function DashboardPage() {
                           return (
                             <div className="bg-background border rounded-lg p-3 shadow-lg">
                               <p className="font-medium">{data.category_name}</p>
-                              <p className="text-sm text-muted-foreground">物品数: {data.item_count}</p>
-                              <p className="text-sm text-muted-foreground">总值: ¥{data.total_value.toFixed(2)}</p>
+                              <p className="text-sm text-muted-foreground">{tCommon('items')}: {data.item_count}</p>
+                              <p className="text-sm text-muted-foreground">{tCommon('totalValue')}: ¥{data.total_value.toFixed(2)}</p>
                             </div>
                           )
                         }
@@ -195,13 +198,13 @@ export default function DashboardPage() {
 
       {/* Trend Chart */}
       {stats?.daily_trends && stats.daily_trends.length > 0 && (
-        <TrendChart data={stats.daily_trends} title="库存变动趋势" />
+        <TrendChart data={stats.daily_trends} title={t('trend')} />
       )}
 
       {/* Quick Actions */}
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-base font-medium">快速操作</CardTitle>
+          <CardTitle className="text-base font-medium">{t('quickActions')}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -210,7 +213,7 @@ export default function DashboardPage() {
                 <div className="p-2.5 rounded-full bg-blue-500/10 group-hover:bg-blue-500/20 transition-colors">
                   <ScanLine className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                 </div>
-                <span className="text-sm font-medium text-blue-700 dark:text-blue-300">扫码添加</span>
+                <span className="text-sm font-medium text-blue-700 dark:text-blue-300">{t('scanAdd')}</span>
               </div>
             </Link>
             <Link href="/dashboard/items?action=add" className="group">
@@ -218,7 +221,7 @@ export default function DashboardPage() {
                 <div className="p-2.5 rounded-full bg-green-500/10 group-hover:bg-green-500/20 transition-colors">
                   <Plus className="h-5 w-5 text-green-600 dark:text-green-400" />
                 </div>
-                <span className="text-sm font-medium text-green-700 dark:text-green-300">手动添加</span>
+                <span className="text-sm font-medium text-green-700 dark:text-green-300">{t('manualAdd')}</span>
               </div>
             </Link>
             <Link href="/dashboard/categories" className="group">
@@ -226,7 +229,7 @@ export default function DashboardPage() {
                 <div className="p-2.5 rounded-full bg-purple-500/10 group-hover:bg-purple-500/20 transition-colors">
                   <Tags className="h-5 w-5 text-purple-600 dark:text-purple-400" />
                 </div>
-                <span className="text-sm font-medium text-purple-700 dark:text-purple-300">分类管理</span>
+                <span className="text-sm font-medium text-purple-700 dark:text-purple-300">{t('categoryManage')}</span>
               </div>
             </Link>
             <Link href="/dashboard/locations" className="group">
@@ -234,7 +237,7 @@ export default function DashboardPage() {
                 <div className="p-2.5 rounded-full bg-orange-500/10 group-hover:bg-orange-500/20 transition-colors">
                   <MapPin className="h-5 w-5 text-orange-600 dark:text-orange-400" />
                 </div>
-                <span className="text-sm font-medium text-orange-700 dark:text-orange-300">位置管理</span>
+                <span className="text-sm font-medium text-orange-700 dark:text-orange-300">{t('locationManage')}</span>
               </div>
             </Link>
           </div>
@@ -248,9 +251,9 @@ export default function DashboardPage() {
             <div className="flex items-center gap-3">
               <AlertTriangle className="h-5 w-5 text-orange-500" />
               <div>
-                <p className="font-medium">您有 {stats?.expiring_soon} 件物品即将过期</p>
+                <p className="font-medium">{t('expiringAlert', { count: stats?.expiring_soon || 0 })}</p>
                 <Link href="/dashboard/items?filter=expiring" className="text-sm text-primary hover:underline">
-                  查看详情
+                  {t('viewDetails')}
                 </Link>
               </div>
             </div>
