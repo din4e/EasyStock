@@ -71,8 +71,9 @@ func (p *OpenAIProvider) RecognizeFromImage(ctx context.Context, imageData []byt
 		Temperature float64   `json:"temperature"`
 	}
 
-	// Convert image to base64 data URL
-	dataURL := fmt.Sprintf("data:image/jpeg;base64,%s", encodeBase64(imageData))
+	// Convert image to base64 data URL with correct media type
+	mediaType := detectMediaType(imageData)
+	dataURL := fmt.Sprintf("data:%s;base64,%s", mediaType, encodeBase64(imageData))
 
 	req := Request{
 		Model: p.model,

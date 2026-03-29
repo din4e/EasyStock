@@ -6,6 +6,9 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"image"
+	"image/jpeg"
+	"image/png"
 	"io"
 	"net/http"
 	"regexp"
@@ -119,4 +122,87 @@ func parseItemsFromResponse(content string) ([]RecognizedItem, error) {
 	}
 
 	return validItems, nil
+}
+
+// resizeImageIfNeeded resizes images that exceed maxDim pixels on any side.
+// Returns the original data if resizing is not needed or fails.
+// Only handles JPEG and PNG; other formats are returned as-is.
+func ResizeImageIfNeeded(data []byte, maxDim int) []byte {
+	if len(data) < 4 {
+		return data
+	}
+
+	// Only resize JPEG and PNG
+	mediaType := detectMediaType(data)
+	if mediaType != "image/jpeg" && mediaType != "image/png" {
+		return data
+	}
+
+	// Decode image config to check dimensions without full decode
+	config, _, err := image.DecodeConfig(bytes.NewReader(data))
+	if err != nil {
+		return data // Can't decode, return original
+	}
+
+	// Check if resize is needed
+	if config.Width <= maxDim && config.Height <= maxDim {
+		return data
+	}
+
+	// Full decode
+	img, err := decodeImage(data, mediaType)
+	if err != nil {
+		return data
+	}
+
+	// Calculate new dimensions
+	bounds := img.Bounds()
+	w, h := bounds.Dx(), bounds.Dy()
+	if w > maxDim {
+		h = h * maxDim / w
+		w = maxDim
+	}
+	if h > maxDim {
+		w = w * maxDim / h
+		h = maxDim
+	}
+
+	// Resize using simple nearest-neighbor (good enough for AI vision input)
+	resized := resizeNearest(img, w, h)
+
+	// Encode as JPEG
+	var buf bytes.Buffer
+	if err := jpeg.Encode(&buf, resized, &jpeg.Options{Quality: 85}); err != nil {
+		return data
+	}
+
+	return buf.Bytes()
+}
+
+// decodeImage decodes an image from bytes based on media type
+func decodeImage(data []byte, mediaType string) (image.Image, error) {
+	reader := bytes.NewReader(data)
+	switch mediaType {
+	case "image/png":
+		return png.Decode(reader)
+	default:
+		return jpeg.Decode(reader)
+	}
+}
+
+// resizeNearest performs nearest-neighbor resizing
+func resizeNearest(img image.Image, w, h int) image.Image {
+	dst := image.NewRGBA(image.Rect(0, 0, w, h))
+	srcBounds := img.Bounds()
+	sx := float64(srcBounds.Dx()) / float64(w)
+	sy := float64(srcBounds.Dy()) / float64(h)
+
+	for y := 0; y < h; y++ {
+		for x := 0; x < w; x++ {
+			srcX := int(float64(x) * sx)
+			srcY := int(float64(y) * sy)
+			dst.Set(x, y, img.At(srcBounds.Min.X+srcX, srcBounds.Min.Y+srcY))
+		}
+	}
+	return dst
 }

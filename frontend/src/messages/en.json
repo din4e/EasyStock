@@ -128,6 +128,8 @@
     "note": "Note"
   },
   "stats": {
+    "in": "In",
+    "out": "Out",
     "inCount": "In Count",
     "outCount": "Out Count",
     "inValue": "In Value",
@@ -159,7 +161,8 @@
     "fileTooLarge": "File size exceeds limit (max {size}MB)",
     "invalidType": "Unsupported file type",
     "recognizing": "AI is recognizing...",
-    "pleaseWait": "Please wait"
+    "pleaseWait": "Please wait",
+    "browserOCR": "Browser OCR"
   },
   "ai": {
     "result": "AI Recognition Result",
@@ -179,6 +182,17 @@
     "brand": "Brand",
     "noItems": "No items recognized",
     "confirmAdd": "Will add {count} items to inventory after confirmation",
-    "confirm": "Confirm Add"
+    "confirm": "Confirm Add",
+    "title": "AI Smart Recognition",
+    "typeProduct": "Product",
+    "typeReceipt": "Receipt",
+    "typeBarcode": "Barcode",
+    "descProduct": "Upload a product photo and AI will identify item info",
+    "descReceipt": "Upload a receipt/invoice and AI will extract all items",
+    "descBarcode": "Upload a barcode image and AI will identify barcode info",
+    "recognitionFailed": "AI recognition failed",
+    "batchSuccess": "Successfully added {count} items",
+    "batchFailed": "Batch creation failed",
+    "expiry": "Expiry"
   }
 }

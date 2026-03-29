@@ -277,7 +277,17 @@ class ApiClient {
 
   // AI Recognition
   async getAIStatus() {
-    return this.request<{ configured: boolean; provider: string; model: string }>('/ai/status')
+    return this.request<{ configured: boolean; provider: string; model: string; available?: boolean }>('/ai/status')
+  }
+
+  // Browser OCR availability (checked client-side)
+  async isBrowserOCRAvailable() {
+    try {
+      const { isBrowserOCRAvailable: available } = await import('./browser-ocr')
+      return available()
+    } catch {
+      return false
+    }
   }
 
   async getAIProviders() {

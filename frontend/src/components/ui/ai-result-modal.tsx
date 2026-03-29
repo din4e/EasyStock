@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
+import { useTranslations } from 'next-intl'
 
 export interface RecognizedItem {
   name: string
@@ -53,6 +54,8 @@ export function AIResultModal({
 }: AIResultModalProps) {
   const [items, setItems] = useState<RecognizedItem[]>(initialItems)
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
+  const t = useTranslations('ai')
+  const tCommon = useTranslations('common')
 
   const getConfidenceColor = (confidence: number) => {
     if (confidence >= 0.8) return 'text-green-600'
@@ -61,9 +64,9 @@ export function AIResultModal({
   }
 
   const getConfidenceLabel = (confidence: number) => {
-    if (confidence >= 0.8) return '高'
-    if (confidence >= 0.5) return '中'
-    return '低'
+    if (confidence >= 0.8) return t('high')
+    if (confidence >= 0.5) return t('medium')
+    return t('low')
   }
 
   const updateItem = (index: number, updates: Partial<RecognizedItem>) => {
@@ -101,9 +104,9 @@ export function AIResultModal({
         <div className="p-6 border-b">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-xl font-bold">AI 识别结果</h2>
+              <h2 className="text-xl font-bold">{t('result')}</h2>
               <p className="text-sm text-muted-foreground mt-1">
-                识别到 {items.length} 个物品 · {provider} / {model}
+                {t('recognized', { count: items.length })} · {provider} / {model}
               </p>
             </div>
             <Button variant="ghost" size="icon" onClick={onCancel}>
@@ -115,7 +118,7 @@ export function AIResultModal({
             <div className="mt-4 flex items-center gap-2 p-3 bg-yellow-50 dark:bg-yellow-950/30 rounded-lg">
               <AlertTriangle className="h-4 w-4 text-yellow-600" />
               <span className="text-sm text-yellow-700 dark:text-yellow-400">
-                有 {lowConfidenceCount} 个物品置信度较低，建议检查
+                {t('lowConfidence', { count: lowConfidenceCount })}
               </span>
             </div>
           )}
@@ -132,14 +135,14 @@ export function AIResultModal({
                     <div className="space-y-4">
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label>名称 *</Label>
+                          <Label>{t('name')} *</Label>
                           <Input
                             value={item.name}
                             onChange={(e) => updateItem(index, { name: e.target.value })}
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label>条码</Label>
+                          <Label>{t('barcode')}</Label>
                           <Input
                             value={item.barcode || ''}
                             onChange={(e) => updateItem(index, { barcode: e.target.value })}
@@ -148,7 +151,7 @@ export function AIResultModal({
                       </div>
                       <div className="grid grid-cols-3 gap-4">
                         <div className="space-y-2">
-                          <Label>数量</Label>
+                          <Label>{t('quantity')}</Label>
                           <Input
                             type="number"
                             value={item.quantity || 1}
@@ -156,14 +159,14 @@ export function AIResultModal({
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label>单位</Label>
+                          <Label>{t('unit')}</Label>
                           <Input
                             value={item.unit || ''}
                             onChange={(e) => updateItem(index, { unit: e.target.value })}
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label>价格</Label>
+                          <Label>{t('price')}</Label>
                           <Input
                             type="number"
                             step="0.01"
@@ -174,7 +177,7 @@ export function AIResultModal({
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label>过期日期</Label>
+                          <Label>{t('expiredAt')}</Label>
                           <Input
                             type="date"
                             value={item.expired_at || ''}
@@ -182,7 +185,7 @@ export function AIResultModal({
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label>描述</Label>
+                          <Label>{t('category')}</Label>
                           <Input
                             value={item.description || ''}
                             onChange={(e) => updateItem(index, { description: e.target.value })}
@@ -190,7 +193,7 @@ export function AIResultModal({
                         </div>
                       </div>
                       <Button size="sm" onClick={() => toggleEdit(index)}>
-                        <Check className="h-4 w-4 mr-1" /> 完成
+                        <Check className="h-4 w-4 mr-1" /> {tCommon('done')}
                       </Button>
                     </div>
                   ) : (
@@ -200,16 +203,16 @@ export function AIResultModal({
                         <div className="flex items-center gap-2 mb-2">
                           <span className="font-medium">{item.name}</span>
                           <span className={`text-xs px-2 py-0.5 rounded-full ${getConfidenceColor(item.confidence)} bg-opacity-10`}>
-                            置信度: {getConfidenceLabel(item.confidence)} ({(item.confidence * 100).toFixed(0)}%)
+                            {t('confidence')}: {getConfidenceLabel(item.confidence)} ({(item.confidence * 100).toFixed(0)}%)
                           </span>
                         </div>
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm text-muted-foreground">
-                          {item.barcode && <div>条码: {item.barcode}</div>}
-                          {item.quantity !== undefined && <div>数量: {item.quantity} {item.unit || ''}</div>}
-                          {item.price !== undefined && <div>价格: ¥{item.price.toFixed(2)}</div>}
-                          {item.category && <div>分类: {item.category}</div>}
-                          {item.brand && <div>品牌: {item.brand}</div>}
-                          {item.expired_at && <div>过期: {item.expired_at}</div>}
+                          {item.barcode && <div>{t('barcode')}: {item.barcode}</div>}
+                          {item.quantity !== undefined && <div>{t('quantity')}: {item.quantity} {item.unit || ''}</div>}
+                          {item.price !== undefined && <div>{t('price')}: ¥{item.price.toFixed(2)}</div>}
+                          {item.category && <div>{t('category')}: {item.category}</div>}
+                          {item.brand && <div>{t('brand')}: {item.brand}</div>}
+                          {item.expired_at && <div>{t('expiry')}: {item.expired_at}</div>}
                         </div>
                         {item.description && (
                           <p className="text-sm text-muted-foreground mt-2">{item.description}</p>
@@ -237,7 +240,7 @@ export function AIResultModal({
 
           {items.length === 0 && (
             <div className="text-center py-12 text-muted-foreground">
-              没有识别到任何物品
+              {t('noItems')}
             </div>
           )}
         </div>
@@ -245,15 +248,15 @@ export function AIResultModal({
         {/* Footer */}
         <div className="p-6 border-t flex justify-between items-center">
           <p className="text-sm text-muted-foreground">
-            确认后将添加 {items.length} 个物品到库存
+            {t('confirmAdd', { count: items.length })}
           </p>
           <div className="flex gap-3">
             <Button variant="outline" onClick={onCancel}>
-              取消
+              {tCommon('cancel')}
             </Button>
             <Button onClick={handleConfirm} disabled={items.length === 0}>
               <Plus className="h-4 w-4 mr-2" />
-              确认添加
+              {t('confirm')}
             </Button>
           </div>
         </div>

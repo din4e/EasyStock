@@ -1,8 +1,9 @@
 "use client"
 
-import { useCallback, useState } from 'react'
-import { Upload, X, FileImage, FileText, Loader2 } from 'lucide-react'
+import { useCallback, useEffect, useState } from 'react'
+import { Upload, X, FileImage, FileText, Loader2, Camera } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { useTranslations } from 'next-intl'
 
 interface FileUploadProps {
   onFileSelect: (file: File) => void
@@ -22,10 +23,23 @@ export function FileUpload({
   const [isDragging, setIsDragging] = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const t = useTranslations('upload')
+
+  // Create/cleanup preview URL for images
+  useEffect(() => {
+    if (selectedFile && selectedFile.type.startsWith('image/')) {
+      const url = URL.createObjectURL(selectedFile)
+      setPreviewUrl(url)
+      return () => URL.revokeObjectURL(url)
+    } else {
+      setPreviewUrl(null)
+    }
+  }, [selectedFile])
 
   const validateFile = useCallback((file: File): string | null => {
     if (file.size > maxSize) {
-      return `文件大小超出限制 (最大 ${Math.round(maxSize / 1024 / 1024)}MB)`
+      return t('fileTooLarge', { size: Math.round(maxSize / 1024 / 1024) })
     }
 
     const acceptedTypes = accept.split(',').map(t => t.trim())
@@ -37,11 +51,11 @@ export function FileUpload({
     })
 
     if (!isValidType) {
-      return '不支持的文件类型'
+      return t('invalidType')
     }
 
     return null
-  }, [accept, maxSize])
+  }, [accept, maxSize, t])
 
   const handleFile = useCallback((file: File) => {
     const validationError = validateFile(file)
@@ -125,19 +139,22 @@ export function FileUpload({
             onChange={handleInputChange}
             disabled={disabled}
             className="hidden"
+            capture="environment"
           />
           <Upload className="h-10 w-10 mx-auto text-muted-foreground mb-4" />
           <p className="text-sm text-muted-foreground mb-2">
-            拖拽文件到此处或点击上传
+            {t('dragOrClick')}
           </p>
           <p className="text-xs text-muted-foreground">
-            支持图片 (JPG, PNG, GIF, WebP) 和 PDF 文件，最大 {Math.round(maxSize / 1024 / 1024)}MB
+            {t('supportTypes', { size: Math.round(maxSize / 1024 / 1024) })}
           </p>
         </div>
       ) : (
         <div className="border rounded-lg p-4">
           <div className="flex items-center gap-4">
-            {getFileIcon(selectedFile)}
+            {previewUrl ? (
+              <img src={previewUrl} alt="Preview" className="h-16 w-16 object-cover rounded" />
+            ) : getFileIcon(selectedFile)}
             <div className="flex-1 min-w-0">
               <p className="font-medium truncate">{selectedFile.name}</p>
               <p className="text-sm text-muted-foreground">{formatFileSize(selectedFile.size)}</p>
@@ -161,15 +178,54 @@ export function FileUpload({
   )
 }
 
-// Loading overlay component for recognition
-export function RecognitionLoading({ provider, model }: { provider?: string; model?: string }) {
+// Loading overlay component for recognition with progress support
+interface RecognitionLoadingProps {
+  provider?: string
+  model?: string
+  progress?: number // 0-100
+  status?: string // current status message
+  isBrowserOCR?: boolean // true for browser-side OCR
+}
+
+export function RecognitionLoading({
+  provider,
+  model,
+  progress,
+  status,
+  isBrowserOCR = false
+}: RecognitionLoadingProps) {
+  const t = useTranslations('upload')
+  const tAi = useTranslations('ai')
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-background rounded-lg p-8 text-center max-w-sm">
+      <div className="bg-background rounded-lg p-8 text-center max-w-sm w-full mx-4">
         <Loader2 className="h-12 w-12 mx-auto text-primary animate-spin mb-4" />
-        <p className="text-lg font-medium mb-2">AI 正在识别中...</p>
-        <p className="text-sm text-muted-foreground">
-          {provider && model ? `${provider} / ${model}` : '请稍候'}
+        <p className="text-lg font-medium mb-2">
+          {isBrowserOCR ? t('browserOCR') : 'AI'} {t('recognizing')}
+        </p>
+
+        {/* Progress bar for browser OCR */}
+        {isBrowserOCR && typeof progress === 'number' && (
+          <div className="mt-4">
+            <div className="w-full bg-muted rounded-full h-2 mb-2">
+              <div
+                className="bg-primary h-2 rounded-full transition-all duration-300"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {status || `${progress}%`}
+            </p>
+          </div>
+        )}
+
+        <p className="text-sm text-muted-foreground mt-2">
+          {provider && model
+            ? `${provider} / ${model}`
+            : isBrowserOCR
+              ? 'Tesseract.js'
+              : t('pleaseWait')}
         </p>
       </div>
     </div>

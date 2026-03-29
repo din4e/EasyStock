@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
@@ -10,6 +11,8 @@ import { Package, Plus, Search, ScanLine, Edit, Trash2, Sparkles, Camera, Receip
 import { api } from '@/lib/api'
 import { offlineDB } from '@/lib/offline-db'
 import { useOfflineSync } from '@/hooks/useOfflineSync'
+import { compressImage, validateImageFile } from '@/lib/image-utils'
+import { recognizeFromImage as browserOCR, isBrowserOCRAvailable } from '@/lib/browser-ocr'
 import { FileUpload, RecognitionLoading } from '@/components/ui/file-upload'
 import { AIResultModal, RecognizedItem } from '@/components/ui/ai-result-modal'
 import dynamic from 'next/dynamic'
@@ -50,6 +53,8 @@ type RecognitionType = 'product' | 'receipt' | 'barcode'
 export default function ItemsPage() {
   const searchParams = useSearchParams()
   const { recordOfflineOp } = useOfflineSync()
+  const tAi = useTranslations('ai')
+  const tCommon = useTranslations('common')
   const [items, setItems] = useState<Item[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [locations, setLocations] = useState<Location[]>([])
@@ -70,7 +75,7 @@ export default function ItemsPage() {
     provider: string
     model: string
   } | null>(null)
-  const [aiStatus, setAIStatus] = useState<{ configured: boolean; provider: string } | null>(null)
+  const [aiStatus, setAIStatus] = useState<{ configured: boolean; provider: string; browserOCR?: boolean } | null>(null)
 
   // Barcode scanner states
   const [showScanner, setShowScanner] = useState(false)
@@ -159,8 +164,11 @@ export default function ItemsPage() {
 
   const checkAIStatus = async () => {
     try {
-      const status = await api.getAIStatus()
-      setAIStatus(status)
+      const [status, browserOCR] = await Promise.all([
+        api.getAIStatus(),
+        api.isBrowserOCRAvailable(),
+      ])
+      setAIStatus({ ...status, browserOCR })
     } catch (error) {
       console.error('Failed to check AI status:', error)
     }
@@ -317,15 +325,70 @@ export default function ItemsPage() {
     setShowAIUpload(false)
 
     try {
-      const result = await api.recognizeFromImage(file, recognitionType)
-      setAIResult({
-        items: result.items,
-        provider: result.provider,
-        model: result.model,
-      })
+      // 验证文件
+      const validation = validateImageFile(file, 10)
+      if (!validation.valid) {
+        throw new Error(validation.error)
+      }
+
+      // 决定使用哪种OCR方式
+      const useServerAI = aiStatus?.configured
+      const useBrowserOCR = !useServerAI && aiStatus?.browserOCR
+
+      if (useBrowserOCR) {
+        // 使用浏览器端Tesseract.js OCR
+        console.log('Using browser OCR...')
+        const result = await browserOCR(file, (progress) => {
+          console.log(`OCR Progress: ${progress.status} - ${progress.progress}%`)
+        })
+
+        // 转换为AIResult格式
+        setAIResult({
+          items: result.items.map((item, index) => ({
+            name: item.name || '',
+            barcode: item.barcode,
+            quantity: item.quantity,
+            price: item.price,
+            unit: item.unit,
+            confidence: item.confidence,
+          })),
+          provider: 'Browser OCR (Tesseract.js)',
+          model: 'eng+chi_sim',
+        })
+      } else if (useServerAI) {
+        // 使用服务器端AI OCR
+        // 压缩图片（如果太大）
+        let fileToUpload = file
+        const maxSizeKB = 1024 // 1MB
+        if (file.size > maxSizeKB * 1024) {
+          console.log(`Compressing image: ${(file.size / 1024).toFixed(1)}KB ->...`)
+          try {
+            const compressed = await compressImage(file, {
+              maxWidth: 1920,
+              maxHeight: 1920,
+              quality: 0.8,
+              maxSizeKB: maxSizeKB,
+            })
+            fileToUpload = new File([compressed], file.name, { type: 'image/jpeg' })
+            console.log(`Compressed: ${(file.size / 1024).toFixed(1)}KB -> ${(fileToUpload.size / 1024).toFixed(1)}KB`)
+          } catch (compressError) {
+            console.warn('Compression failed, using original file:', compressError)
+          }
+        }
+
+        const result = await api.recognizeFromImage(fileToUpload, recognitionType)
+        setAIResult({
+          items: result.items,
+          provider: result.provider,
+          model: result.model,
+        })
+      } else {
+        // 两种都不可用
+        throw new Error('无可用的OCR方式。请配置AI服务或使用条码扫描功能。')
+      }
     } catch (error) {
       console.error('AI recognition failed:', error)
-      alert('AI 识别失败: ' + (error as Error).message)
+      alert(tAi('recognitionFailed') + ': ' + (error as Error).message)
     } finally {
       setIsRecognizing(false)
       setSelectedFile(null)
@@ -348,10 +411,10 @@ export default function ItemsPage() {
       const result = await api.batchCreateItems(items)
       setAIResult(null)
       loadData()
-      alert(`成功添加 ${result.created} 个物品${result.failed > 0 ? `，${result.failed} 个失败` : ''}`)
+      alert(tAi('batchSuccess', { count: result.created }) + (result.failed > 0 ? ` (${result.failed} failed)` : ''))
     } catch (error) {
       console.error('Failed to create items:', error)
-      alert('批量创建失败: ' + (error as Error).message)
+      alert(tAi('batchFailed') + ': ' + (error as Error).message)
     }
   }
 
@@ -708,7 +771,7 @@ export default function ItemsPage() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-background rounded-lg w-full max-w-md">
             <div className="p-6">
-              <h2 className="text-xl font-bold mb-4">AI 智能识别</h2>
+              <h2 className="text-xl font-bold mb-4">{tAi('title')}</h2>
 
               {/* Recognition type selector */}
               <div className="grid grid-cols-3 gap-2 mb-6">
@@ -718,7 +781,7 @@ export default function ItemsPage() {
                   onClick={() => setRecognitionType('product')}
                 >
                   <Camera className="h-5 w-5 mb-1" />
-                  <span className="text-xs">商品照片</span>
+                  <span className="text-xs">{tAi('typeProduct')}</span>
                 </Button>
                 <Button
                   variant={recognitionType === 'receipt' ? 'default' : 'outline'}
@@ -726,7 +789,7 @@ export default function ItemsPage() {
                   onClick={() => setRecognitionType('receipt')}
                 >
                   <Receipt className="h-5 w-5 mb-1" />
-                  <span className="text-xs">购物小票</span>
+                  <span className="text-xs">{tAi('typeReceipt')}</span>
                 </Button>
                 <Button
                   variant={recognitionType === 'barcode' ? 'default' : 'outline'}
@@ -734,14 +797,14 @@ export default function ItemsPage() {
                   onClick={() => setRecognitionType('barcode')}
                 >
                   <ScanLine className="h-5 w-5 mb-1" />
-                  <span className="text-xs">条形码</span>
+                  <span className="text-xs">{tAi('typeBarcode')}</span>
                 </Button>
               </div>
 
               <p className="text-sm text-muted-foreground mb-4">
-                {recognitionType === 'product' && '上传商品照片，AI 将自动识别商品信息'}
-                {recognitionType === 'receipt' && '上传购物小票或发票，AI 将提取所有商品信息'}
-                {recognitionType === 'barcode' && '上传条形码图片，AI 将识别条码信息'}
+                {recognitionType === 'product' && tAi('descProduct')}
+                {recognitionType === 'receipt' && tAi('descReceipt')}
+                {recognitionType === 'barcode' && tAi('descBarcode')}
               </p>
 
               <FileUpload
@@ -751,7 +814,7 @@ export default function ItemsPage() {
 
               <div className="flex justify-end mt-4">
                 <Button variant="outline" onClick={() => setShowAIUpload(false)}>
-                  取消
+                  {tCommon('cancel')}
                 </Button>
               </div>
             </div>

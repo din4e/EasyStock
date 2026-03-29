@@ -80,6 +80,13 @@ func (h *AIRecognizeHandler) Recognize(c *gin.Context) {
 	}
 	defer file.Close()
 
+	// Validate file size
+	const maxFileSize = 10 * 1024 * 1024 // 10MB
+	if header.Size > maxFileSize {
+		c.JSON(http.StatusRequestEntityTooLarge, gin.H{"error": "File too large, max 10MB"})
+		return
+	}
+
 	// Read file content
 	fileData := make([]byte, header.Size)
 	if _, err := file.Read(fileData); err != nil {
@@ -91,6 +98,11 @@ func (h *AIRecognizeHandler) Recognize(c *gin.Context) {
 	fileInfo, err := h.storage.Save(header.Filename, io.NopCloser(bytes.NewBuffer(fileData)))
 	if err == nil && fileInfo != nil {
 		defer h.storage.Delete(fileInfo.ID)
+	}
+
+	// Resize large images to reduce API costs and latency
+	if contentType := header.Header.Get("Content-Type"); contentType != "application/pdf" {
+		fileData = ai.ResizeImageIfNeeded(fileData, 1536)
 	}
 
 	// Create context with timeout

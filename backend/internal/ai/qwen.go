@@ -57,7 +57,8 @@ func (p *QwenProvider) RecognizeFromImage(ctx context.Context, imageData []byte,
 
 	prompt := GetPrompt(recType)
 
-	dataURL := fmt.Sprintf("data:image/jpeg;base64,%s", encodeBase64(imageData))
+	mediaType := detectMediaType(imageData)
+	dataURL := fmt.Sprintf("data:%s;base64,%s", mediaType, encodeBase64(imageData))
 
 	// Build the request for Qwen VL API
 	reqBody := map[string]interface{}{

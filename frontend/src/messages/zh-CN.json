@@ -128,6 +128,8 @@
     "note": "备注"
   },
   "stats": {
+    "in": "入库",
+    "out": "出库",
     "inCount": "入库数量",
     "outCount": "出库数量",
     "inValue": "入库金额",
@@ -159,7 +161,8 @@
     "fileTooLarge": "文件大小超出限制 (最大 {size}MB)",
     "invalidType": "不支持的文件类型",
     "recognizing": "AI 正在识别中...",
-    "pleaseWait": "请稍候"
+    "pleaseWait": "请稍候",
+    "browserOCR": "Browser OCR"
   },
   "ai": {
     "result": "AI 识别结果",
@@ -179,6 +182,17 @@
     "brand": "品牌",
     "noItems": "没有识别到任何物品",
     "confirmAdd": "确认后将添加 {count} 个物品到库存",
-    "confirm": "确认添加"
+    "confirm": "确认添加",
+    "title": "AI 智能识别",
+    "typeProduct": "商品照片",
+    "typeReceipt": "购物小票",
+    "typeBarcode": "条形码",
+    "descProduct": "上传商品照片，AI 将自动识别商品信息",
+    "descReceipt": "上传购物小票或发票，AI 将提取所有商品信息",
+    "descBarcode": "上传条形码图片，AI 将识别条码信息",
+    "recognitionFailed": "AI 识别失败",
+    "batchSuccess": "成功添加 {count} 个物品",
+    "batchFailed": "批量创建失败",
+    "expiry": "过期"
   }
 }
